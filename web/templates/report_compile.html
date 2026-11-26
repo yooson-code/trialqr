@@ -1,0 +1,94 @@
+{{define "content"}}
+<div class="mx-auto max-w-4xl">
+  <div class="flex flex-wrap items-end justify-between gap-4 print:hidden">
+    <a href="/reports?period={{periodInput .Period}}" class="text-sm font-medium text-pine-600 hover:underline">&larr; Daftar laporan</a>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{.ExportURL}}" class="btn btn-ghost">{{icon "download"}} Excel</a>
+      <button type="button" class="btn btn-primary" onclick="window.print()">{{icon "print"}} Cetak / simpan PDF</button>
+    </div>
+  </div>
+
+  <form method="get" class="mt-4 flex flex-wrap items-end gap-3 print:hidden">
+    <div>
+      <label class="lbl" for="period">Periode</label>
+      <input id="period" type="month" name="period" value="{{periodInput .Period}}" pattern="[0-9]{4}-[0-9]{2}" class="field w-48" onchange="this.form.submit()">
+    </div>
+    <button class="btn btn-ghost">Tampilkan</button>
+  </form>
+
+  <header class="mt-8 border-b-2 border-pine-800 pb-4">
+    <p class="text-sm font-medium text-pine-700">Ringkasan pra-musyawarah</p>
+    <h1 class="font-display text-3xl font-bold sm:text-4xl">Musyawarah Bulanan, {{monthLabel .Period}}</h1>
+    <p class="mt-1 text-sm text-ink/70">{{len .Reports}} laporan terkirim &middot; {{.DoneItems}} dari {{.TotalItems}} kegiatan selesai ({{.ItemsPct}}%) &middot; dicetak {{dateTime .Printed}}</p>
+  </header>
+
+  {{if not .Reports}}
+  <p class="mt-8 rounded-xl border border-dashed border-ink/25 px-6 py-12 text-center text-sm text-ink/70">Belum ada laporan terkirim untuk {{monthLabel .Period}}.</p>
+  {{else}}
+
+  <section class="mt-8">
+    <h2 class="font-display text-xl font-bold">Rekap kehadiran seluruh daerah</h2>
+    <div class="mt-4 rounded-xl border border-ink/10 bg-white p-5 keep">{{template "attsummary" .Summary}}</div>
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold">Usulan topik pembahasan</h2>
+    {{if .Topics}}
+    <ul class="mt-3 divide-y divide-ink/10 border-y border-ink/10">
+      {{range .Topics}}<li class="keep py-3"><p class="text-xs font-semibold text-ink/70">{{.Author}} &middot; {{.Bidang}} &middot; {{.Scope}}</p><p class="prose-pre mt-0.5">{{.Text}}</p></li>{{end}}
+    </ul>
+    {{else}}<p class="mt-2 text-sm text-ink/70">Tidak ada usulan topik.</p>{{end}}
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold">Kebutuhan anggaran dan logistik</h2>
+    {{if .Budgets}}
+    <ul class="mt-3 divide-y divide-ink/10 border-y border-ink/10">
+      {{range .Budgets}}<li class="keep py-3"><p class="text-xs font-semibold text-ink/70">{{.Author}} &middot; {{.Bidang}} &middot; {{.Scope}}</p><p class="prose-pre mt-0.5">{{.Text}}</p></li>{{end}}
+    </ul>
+    {{else}}<p class="mt-2 text-sm text-ink/70">Tidak ada pengajuan anggaran atau logistik.</p>{{end}}
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold">Kendala di lapangan dan tindak lanjut</h2>
+    {{if .Obstacles}}
+    <ul class="mt-3 divide-y divide-ink/10 border-y border-ink/10">
+      {{range .Obstacles}}
+      <li class="keep py-3">
+        <p class="text-xs font-semibold text-ink/70">{{.Author}} &middot; {{.Bidang}} &middot; {{.Item}}</p>
+        <p class="prose-pre mt-0.5">{{.Text}}</p>
+        {{if .Followup}}<p class="prose-pre mt-1 text-sm text-ink/70"><span class="font-semibold">Tindak lanjut:</span> {{.Followup}}</p>{{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{else}}<p class="mt-2 text-sm text-ink/70">Tidak ada kendala yang dilaporkan.</p>{{end}}
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold">Laporan per pengurus</h2>
+    <div class="mt-4 space-y-3">
+      {{range .Reports}}
+      <details class="keep group rounded-xl border border-ink/10 bg-white" open>
+        <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 print:cursor-default">
+          <span class="font-semibold">{{.AuthorName}}</span>
+          <span class="text-sm text-ink/70">{{.Bidang}} &middot; {{.Scope}}</span>
+          <span class="ml-auto text-xs text-ink/70">{{.ItemsDone}}/{{len .Items}} kegiatan selesai</span>
+        </summary>
+        <div class="space-y-4 border-t border-ink/10 px-4 py-4 text-sm">
+          {{if .Summary}}<div><h3 class="text-xs font-semibold text-ink/70">Ringkasan</h3><p class="prose-pre mt-0.5">{{.Summary}}</p></div>{{end}}
+          {{if .Items}}
+          <ul class="space-y-2">
+            {{range .Items}}<li class="flex flex-wrap items-baseline gap-x-2"><span class="chip {{itemChip .Status}}">{{itemStatus .Status}}</span><span class="font-medium">{{.Name}}</span>{{if .Achievement}}<span class="text-ink/70">: {{.Achievement}}</span>{{end}}</li>{{end}}
+          </ul>
+          {{end}}
+          {{if .AttendanceNote}}<div><h3 class="text-xs font-semibold text-ink/70">Catatan kehadiran</h3><p class="prose-pre mt-0.5">{{.AttendanceNote}}</p></div>{{end}}
+          {{if .Evaluation}}<div><h3 class="text-xs font-semibold text-ink/70">Evaluasi</h3><p class="prose-pre mt-0.5">{{.Evaluation}}</p></div>{{end}}
+          <a href="/reports/{{.ID}}" class="inline-block text-sm font-medium text-pine-600 hover:underline print:hidden">Buka laporan lengkap &rarr;</a>
+        </div>
+      </details>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}

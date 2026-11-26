@@ -1,0 +1,76 @@
+{{define "content"}}
+<article class="mx-auto max-w-3xl">
+  <a href="/reports?period={{periodInput .Report.Period}}" class="text-sm font-medium text-pine-600 hover:underline print:hidden">&larr; Daftar laporan</a>
+
+  <header class="mt-2 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-sm text-ink/70">Laporan {{monthLabel .Report.Period}}</p>
+      <h1 class="font-display text-3xl font-bold">{{.Report.AuthorName}}</h1>
+      <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink/70">
+        <span>{{.Report.Bidang}}</span><span>&middot;</span><span>{{.Report.Scope}}</span>
+        <span class="chip {{if .Report.IsSubmitted}}bg-pine-100 text-pine-700{{else}}bg-lamp-100 text-lamp-700{{end}}">{{if .Report.IsSubmitted}}Terkirim{{else}}Draft{{end}}</span>
+      </p>
+      {{if .Report.SubmittedAt}}<p class="mt-1 text-xs text-ink/70">Dikirim {{dateTime .Report.SubmittedAt}}</p>{{end}}
+    </div>
+    <div class="flex flex-wrap gap-2 print:hidden">
+      <button type="button" class="btn btn-ghost" onclick="window.print()">{{icon "print"}} Cetak</button>
+      {{if .CanEdit}}
+      <a href="/reports/{{.Report.ID}}/edit" class="btn btn-ghost">{{icon "edit"}} Ubah</a>
+      {{if .Report.IsSubmitted}}
+      <form method="post" action="/reports/{{.Report.ID}}/reopen"><button class="btn btn-ghost">Tarik jadi draft</button></form>
+      {{else}}
+      <form method="post" action="/reports/{{.Report.ID}}/submit"><button class="btn btn-primary">Kirim laporan</button></form>
+      {{end}}
+      <form method="post" action="/reports/{{.Report.ID}}/delete" onsubmit="return confirm('Hapus laporan ini?')"><button class="btn btn-danger" aria-label="Hapus laporan">{{icon "trash"}}</button></form>
+      {{end}}
+    </div>
+  </header>
+
+  {{if not .Report.IsSubmitted}}
+  <p class="mt-5 rounded-lg bg-lamp-100 px-4 py-3 text-sm text-lamp-700 print:hidden">Ini masih draft dan belum bisa dibaca peserta musyawarah. Tekan <strong>Kirim laporan</strong> bila sudah selesai.</p>
+  {{end}}
+
+  <section class="mt-8">
+    <h2 class="font-display text-xl font-bold">Ringkasan kinerja</h2>
+    {{if .Report.Summary}}<p class="prose-pre mt-2 leading-relaxed">{{.Report.Summary}}</p>{{else}}<p class="mt-2 text-sm text-ink/70">Tidak ada ringkasan umum.</p>{{end}}
+
+    {{if .Report.Items}}
+    <p class="mt-5 text-sm text-ink/70"><strong class="text-ink">{{.Report.ItemsDone}}</strong> dari {{len .Report.Items}} kegiatan selesai</p>
+    <div class="mt-1 h-2 overflow-hidden rounded-full bg-ink/10"><div class="h-full rounded-full bg-pine-600" style="width: {{.Report.ItemsPct}}%"></div></div>
+    <ol class="mt-4 space-y-4">
+      {{range .Report.Items}}
+      <li class="keep rounded-xl border border-ink/10 bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="font-semibold">{{.Name}}</p>
+          <span class="chip {{itemChip .Status}}">{{itemStatus .Status}}</span>
+        </div>
+        <dl class="mt-2 space-y-2 text-sm">
+          {{if .Achievement}}<div><dt class="text-xs font-semibold text-ink/70">Capaian / progres</dt><dd class="prose-pre">{{.Achievement}}</dd></div>{{end}}
+          {{if .Obstacle}}<div><dt class="text-xs font-semibold text-ink/70">Kendala / hambatan</dt><dd class="prose-pre">{{.Obstacle}}</dd></div>{{end}}
+          {{if .Followup}}<div><dt class="text-xs font-semibold text-ink/70">Rencana tindak lanjut</dt><dd class="prose-pre">{{.Followup}}</dd></div>{{end}}
+        </dl>
+      </li>
+      {{end}}
+    </ol>
+    {{end}}
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold">Rekap kehadiran</h2>
+    <p class="text-sm text-ink/70">Otomatis dari data absensi, {{monthLabel .Report.Period}}, cakupan {{.Report.Scope}}.</p>
+    <div class="mt-4 rounded-xl border border-ink/10 bg-white p-5">{{template "attsummary" .Summary}}</div>
+    {{if .Report.AttendanceNote}}
+    <div class="mt-4"><h3 class="text-sm font-semibold text-ink/80">Catatan pelengkap</h3><p class="prose-pre mt-1">{{.Report.AttendanceNote}}</p></div>
+    {{end}}
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold">Catatan dan usulan untuk musyawarah</h2>
+    <dl class="mt-3 space-y-5">
+      <div><dt class="text-sm font-semibold text-ink/80">Poin evaluasi</dt><dd class="prose-pre mt-1">{{if .Report.Evaluation}}{{.Report.Evaluation}}{{else}}<span class="text-ink/70">-</span>{{end}}</dd></div>
+      <div><dt class="text-sm font-semibold text-ink/80">Kebutuhan anggaran / logistik</dt><dd class="prose-pre mt-1">{{if .Report.BudgetNeeds}}{{.Report.BudgetNeeds}}{{else}}<span class="text-ink/70">-</span>{{end}}</dd></div>
+      <div><dt class="text-sm font-semibold text-ink/80">Topik yang ingin dibahas</dt><dd class="prose-pre mt-1">{{if .Report.Topics}}{{.Report.Topics}}{{else}}<span class="text-ink/70">-</span>{{end}}</dd></div>
+    </dl>
+  </section>
+</article>
+{{end}}

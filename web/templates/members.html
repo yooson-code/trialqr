@@ -1,0 +1,253 @@
+{{define "content"}}
+<div x-data="members()" x-init="init()" @keydown.escape.window="modal = false; qr = null">
+
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="font-display text-3xl font-bold">Anggota</h1>
+      <p class="text-sm text-ink/70">{{len .Members}} anggota{{if or .Filter.Q .Filter.VillageID .Filter.GroupID .Filter.Category .Filter.Marital}} sesuai filter{{end}}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {{if .Members}}<a href="{{.ExportURL}}" class="btn btn-ghost">{{icon "download"}} Ekspor CSV</a>
+      <a href="{{.CardsURL}}" target="_blank" class="btn btn-ghost">{{icon "print"}} Cetak kartu</a>{{end}}
+      <button class="btn btn-primary" @click="openNew()" {{if not .HasMaster}}disabled title="Tambahkan desa dan kelompok dulu"{{end}}>{{icon "plus"}} Tambah anggota</button>
+    </div>
+  </div>
+
+  {{if not .HasMaster}}
+  <p class="mt-5 rounded-lg bg-lamp-100 px-4 py-3 text-sm text-lamp-700">Belum ada desa dan kelompok. <a href="/master" class="font-semibold underline">Isi dulu di halaman Desa &amp; kelompok</a> supaya bisa dipilih saat menambah anggota.</p>
+  {{end}}
+
+  <!-- filter -->
+  <form method="get" class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+    <div class="relative sm:col-span-2 lg:col-span-6">
+      <span class="pointer-events-none absolute left-3 top-3 text-ink/40 sm:top-2.5">{{icon "search"}}</span>
+      <input class="field pl-10" type="search" name="q" value="{{.Filter.Q}}" placeholder="Cari nama, nomor HP, orang tua, atau kartu RFID" aria-label="Cari anggota">
+    </div>
+    <select name="village_id" class="field lg:col-span-1" aria-label="Filter desa" onchange="this.form.group_id.value=''; this.form.submit()">
+      <option value="">Semua desa</option>
+      {{range .Views}}<option value="{{.ID}}" {{if eq $.Filter.VillageID .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <select name="group_id" class="field lg:col-span-2" aria-label="Filter kelompok" onchange="this.form.submit()">
+      <option value="">Semua kelompok</option>
+      {{range .Views}}<optgroup label="{{.Name}}">{{range .Groups}}<option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+    </select>
+    <select name="category" class="field lg:col-span-1" aria-label="Filter kategori" onchange="this.form.submit()">
+      <option value="">Semua kategori</option>
+      {{range .Categories}}<option value="{{.Key}}" {{if eq $.Filter.Category .Key}}selected{{end}}>{{.Label}} ({{.Min}}{{if lt .Max 100}}-{{.Max}}{{else}}+{{end}})</option>{{end}}
+      <option value="belum" {{if eq $.Filter.Category "belum"}}selected{{end}}>Belum diisi</option>
+    </select>
+    <select name="marital" class="field lg:col-span-1" aria-label="Filter status pernikahan" onchange="this.form.submit()">
+      <option value="">Semua status nikah</option>
+      <option value="belum" {{if eq $.Filter.Marital "belum"}}selected{{end}}>Belum menikah</option>
+      <option value="menikah" {{if eq $.Filter.Marital "menikah"}}selected{{end}}>Menikah</option>
+    </select>
+    <button class="btn btn-ghost sm:col-span-2 lg:col-span-6 lg:justify-self-start">Terapkan filter</button>
+  </form>
+
+  <!-- tabel -->
+  {{if .Members}}
+  <div class="mt-5 overflow-x-auto rounded-xl border border-ink/10 bg-white">
+    <table class="min-w-full divide-y divide-ink/10">
+      <thead class="bg-mist/60"><tr>
+        <th class="th">Anggota</th><th class="th hidden sm:table-cell">Kelompok</th><th class="th hidden md:table-cell">No HP</th><th class="th hidden lg:table-cell">Orang tua</th><th class="th">Status</th><th class="th text-right">Aksi</th>
+      </tr></thead>
+      <tbody class="divide-y divide-ink/10">
+        {{range .Members}}
+        <tr class="hover:bg-pine-50/50">
+          <td class="td">
+            <div class="flex items-center gap-3">
+              {{if .PhotoURL}}<img src="{{.PhotoURL}}" alt="" class="h-10 w-10 flex-none rounded-full object-cover" loading="lazy">
+              {{else}}<div class="grid h-10 w-10 flex-none place-items-center rounded-full bg-pine-100 text-sm font-bold text-pine-700">{{initials .FullName}}</div>{{end}}
+              <div class="min-w-0">
+                <p class="truncate font-semibold">{{.FullName}}</p>
+                <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span class="chip {{catChip .CategoryKey}}">{{.Category}}</span>
+                  {{if .MaritalLabel}}<span class="chip border border-ink/20 bg-white text-ink/80">{{.MaritalLabel}}</span>{{end}}
+                  {{if .Age}}<span class="text-ink/70">{{.Age}} th</span>{{end}}
+                  {{if .RFID}}<span class="chip bg-ink/10 text-ink/70" title="Kartu RFID terdaftar">RFID</span>{{end}}
+                </p>
+                <p class="truncate text-xs text-ink/70 sm:hidden">{{.GroupName}}, {{.VillageName}}</p>
+              </div>
+            </div>
+          </td>
+          <td class="td hidden sm:table-cell"><p>{{.GroupName}}</p><p class="text-xs text-ink/70">{{.VillageName}}</p></td>
+          <td class="td hidden md:table-cell">
+            {{if .Phone}}<a href="{{wa .Phone}}" target="_blank" rel="noopener" class="text-pine-600 hover:underline">{{.Phone}}</a>{{else}}<span class="text-ink/35">-</span>{{end}}
+          </td>
+          <td class="td hidden lg:table-cell">
+            {{if or .ParentName .ParentPhone}}<p>{{if .ParentName}}{{.ParentName}}{{else}}-{{end}}</p>
+              {{if .ParentPhone}}<a href="{{wa .ParentPhone}}" target="_blank" rel="noopener" class="text-xs text-pine-600 hover:underline">{{.ParentPhone}}</a>{{end}}
+            {{else}}<span class="text-ink/35">-</span>{{end}}
+          </td>
+          <td class="td">{{if .IsActive}}<span class="chip bg-pine-100 text-pine-700">Aktif</span>{{else}}<span class="chip bg-ink/10 text-ink/70">Nonaktif</span>{{end}}</td>
+          <td class="td">
+            <div class="flex justify-end gap-1">
+              <button class="btn btn-ghost !px-2.5" @click="showQR('{{.ID}}')" title="Lihat QR Code" aria-label="QR Code {{.FullName}}">{{icon "qr"}}</button>
+              <button class="btn btn-ghost !px-2.5" @click="openEdit('{{.ID}}')" title="Ubah" aria-label="Ubah {{.FullName}}">{{icon "edit"}}</button>
+              <form method="post" action="/members/{{.ID}}/delete" onsubmit="return confirm('Hapus {{.FullName}}? Seluruh riwayat kehadirannya ikut terhapus.')">
+                <button class="btn btn-danger !px-2.5" title="Hapus" aria-label="Hapus {{.FullName}}">{{icon "trash"}}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="mt-5 rounded-xl border border-dashed border-ink/25 px-6 py-14 text-center">
+    <p class="font-display text-xl font-bold">{{if or .Filter.Q .Filter.VillageID .Filter.GroupID .Filter.Category}}Tidak ada anggota yang cocok{{else}}Belum ada anggota{{end}}</p>
+    <p class="mx-auto mt-1 max-w-sm text-sm text-ink/70">{{if or .Filter.Q .Filter.VillageID .Filter.GroupID .Filter.Category}}Coba ubah kata kunci atau filter desa dan kelompok.{{else}}Tambahkan anggota pertama. QR Code uniknya langsung dibuat otomatis.{{end}}</p>
+  </div>
+  {{end}}
+
+  <!-- modal tambah/ubah -->
+  <div x-cloak x-show="modal" class="fixed inset-0 z-40 flex items-end justify-center bg-ink/50 p-0 sm:items-center sm:p-4" x-transition.opacity>
+    <form method="post" enctype="multipart/form-data" :action="action" @click.outside="modal = false"
+          class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl">
+      <div class="flex items-start justify-between">
+        <h2 class="font-display text-2xl font-bold" x-text="form.id ? 'Ubah data anggota' : 'Anggota baru'"></h2>
+        <button type="button" @click="modal = false" class="rounded-md p-1 hover:bg-ink/5" aria-label="Tutup">{{icon "x"}}</button>
+      </div>
+      <div class="mt-5 space-y-4">
+        <div>
+          <label class="lbl" for="f_name">Nama lengkap</label>
+          <input id="f_name" name="full_name" class="field" x-model="form.full_name" required maxlength="120">
+        </div>
+        <div>
+          <label class="lbl" for="f_phone">No HP / WhatsApp</label>
+          <input id="f_phone" name="phone" class="field" inputmode="tel" placeholder="08123456789" x-model="form.phone">
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="lbl" for="f_birth">Tanggal lahir</label>
+            <input id="f_birth" type="date" name="birth_date" class="field" x-model="form.birth_date" max="{{.Today}}" required>
+          </div>
+          <div class="flex items-end">
+            <p class="w-full rounded-lg px-3 py-2 text-sm" :class="ageInfo ? 'bg-pine-50 text-ink' : 'bg-mist text-ink/70'">
+              <template x-if="ageInfo"><span><strong x-text="ageInfo.age + ' tahun'"></strong> &middot; <span x-text="ageInfo.label"></span></span></template>
+              <template x-if="!ageInfo"><span>Umur dan kategori terisi otomatis</span></template>
+            </p>
+          </div>
+        </div>
+        <fieldset x-cloak x-show="isMandiri" class="rounded-lg border border-ink/15 p-4">
+          <legend class="px-1 text-sm font-medium text-ink/85">Status pernikahan <span class="font-normal text-ink/70">(Usia Mandiri 19-30)</span></legend>
+          <div class="flex flex-wrap gap-x-6 gap-y-2">
+            <label class="flex min-h-[2.75rem] items-center gap-2 text-sm sm:min-h-0"><input type="radio" name="marital_status" value="belum" x-model="form.marital_status" :disabled="!isMandiri" :required="isMandiri" class="h-5 w-5 border-ink/30 text-pine-700 focus:ring-pine-600"> Belum menikah</label>
+            <label class="flex min-h-[2.75rem] items-center gap-2 text-sm sm:min-h-0"><input type="radio" name="marital_status" value="menikah" x-model="form.marital_status" :disabled="!isMandiri" :required="isMandiri" class="h-5 w-5 border-ink/30 text-pine-700 focus:ring-pine-600"> Menikah</label>
+          </div>
+        </fieldset>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="lbl" for="f_village">Desa</label>
+            <select id="f_village" class="field" x-model="form.village_id" @change="form.group_id = ''" required>
+              <option value="">Pilih desa</option>
+              <template x-for="v in villages" :key="v.id"><option :value="v.id" x-text="v.name" :selected="String(v.id) === String(form.village_id)"></option></template>
+            </select>
+          </div>
+          <div>
+            <label class="lbl" for="f_group">Kelompok</label>
+            <select id="f_group" name="group_id" class="field" x-model="form.group_id" :disabled="!form.village_id" required>
+              <option value="">Pilih kelompok</option>
+              <template x-for="g in groupOptions" :key="g.id"><option :value="g.id" x-text="g.name" :selected="String(g.id) === String(form.group_id)"></option></template>
+            </select>
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Foto <span class="font-normal text-ink/70">(opsional, maks 2 MB)</span></span>
+          <div class="flex items-center gap-4">
+            <img x-show="preview || form.photo_url" :src="preview || form.photo_url" alt="" class="h-16 w-16 rounded-full object-cover">
+            <div x-show="!preview && !form.photo_url" class="grid h-16 w-16 place-items-center rounded-full bg-pine-100 text-pine-600">{{icon "camera"}}</div>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" @change="onPhoto($event)"
+                   class="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-pine-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-pine-800 hover:file:bg-pine-200">
+          </div>
+        </div>
+        <fieldset class="grid gap-4 rounded-lg border border-ink/10 p-4 sm:grid-cols-2">
+          <legend class="px-1 text-sm font-medium text-ink/80">Orang tua / wali</legend>
+          <div>
+            <label class="lbl" for="f_pname">Nama</label>
+            <input id="f_pname" name="parent_name" class="field" x-model="form.parent_name" maxlength="120">
+          </div>
+          <div>
+            <label class="lbl" for="f_pphone">No HP / WhatsApp</label>
+            <input id="f_pphone" name="parent_phone" class="field" inputmode="tel" x-model="form.parent_phone">
+          </div>
+        </fieldset>
+        <div>
+          <label class="lbl" for="f_rfid">Kartu RFID <span class="font-normal text-ink/70">(opsional)</span></label>
+          <div class="flex gap-2">
+            <input id="f_rfid" name="rfid_uid" class="field font-mono tracking-wider" x-model="form.rfid_uid" autocomplete="off"
+                   placeholder="Klik di sini, lalu tempelkan kartu" @keydown.enter.prevent>
+            <button type="button" class="btn btn-ghost" x-show="form.rfid_uid" @click="form.rfid_uid = ''">Lepas</button>
+          </div>
+          <p class="mt-1 text-xs text-ink/70">Reader USB mengetik nomor kartu otomatis. Satu kartu hanya untuk satu anggota.</p>
+        </div>
+        <label class="flex items-center gap-2 text-sm" x-show="form.id">
+          <input type="checkbox" name="is_active" value="1" x-model="form.is_active" class="h-4 w-4 rounded border-ink/30 text-pine-700 focus:ring-pine-600">
+          Anggota aktif (bisa absen)
+        </label>
+        <input type="hidden" name="is_active" value="1" x-bind:disabled="form.id">
+      </div>
+      <div class="mt-6 flex justify-end gap-2">
+        <button type="button" class="btn btn-ghost" @click="modal = false">Batal</button>
+        <button class="btn btn-primary" x-text="form.id ? 'Simpan perubahan' : 'Simpan anggota'"></button>
+      </div>
+    </form>
+  </div>
+
+  <!-- modal QR -->
+  <div x-cloak x-show="qr" class="fixed inset-0 z-40 grid place-items-center bg-ink/50 p-4" x-transition.opacity>
+    <div @click.outside="qr = null" class="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl" x-show="qr">
+      <template x-if="qr">
+        <div>
+          <p class="font-display text-xl font-bold" x-text="qr.full_name"></p>
+          <p class="text-sm text-ink/70" x-text="qr.group_name + ', ' + qr.village_name"></p>
+          <p class="mt-0.5 text-xs text-ink/70" x-text="qr.category + (qr.marital_label ? ' · ' + qr.marital_label : '') + (qr.age != null ? ' · ' + qr.age + ' th' : '')"></p>
+          <img :src="'/members/' + qr.id + '/qr.png?size=400'" alt="QR Code" class="mx-auto my-5 h-64 w-64 rounded-lg border border-ink/10 p-2">
+          <div class="flex flex-wrap justify-center gap-2">
+            <a :href="'/members/' + qr.id + '/qr.png?size=1024&download=1'" class="btn btn-primary">{{icon "download"}} Unduh PNG</a>
+            <a :href="'/members/' + qr.id + '/card'" target="_blank" class="btn btn-ghost">{{icon "print"}} Cetak kartu</a>
+          </div>
+          <button class="mt-4 text-sm text-ink/70 hover:text-ink" @click="qr = null">Tutup</button>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('members', () => {
+    const MEMBERS = {{.Members}} || [];
+    const VILLAGES = {{.Villages}} || [];
+    const GROUPS = {{.Groups}} || [];
+    const CATS = {{.Categories}} || [];
+    const blank = () => ({ id: '', full_name: '', phone: '', village_id: '', group_id: '', is_active: true, photo_url: null, birth_date: '', parent_name: '', parent_phone: '', rfid_uid: '', marital_status: '' });
+    return {
+      modal: false, qr: null, preview: null, form: blank(), villages: VILLAGES, groups: GROUPS,
+      init() {},
+      get groupOptions() { return this.groups.filter(g => String(g.village_id) === String(this.form.village_id)); },
+      get ageInfo() {
+        const b = this.form.birth_date; if (!b) return null;
+        const d = new Date(b + 'T00:00:00'), n = new Date();
+        let a = n.getFullYear() - d.getFullYear();
+        if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
+        if (isNaN(a) || a < 0 || a > 100) return null;
+        const c = CATS.find(c => a >= c.min && a <= c.max);
+        return { age: a, label: c ? c.label : '-', key: c ? c.key : '' };
+      },
+      get isMandiri() { return !!(this.ageInfo && this.ageInfo.key === 'mandiri'); },
+      get action() { return this.form.id ? '/members/' + this.form.id : '/members'; },
+      openNew() { this.form = blank(); this.preview = null; this.modal = true; this.$nextTick(() => document.getElementById('f_name').focus()); },
+      openEdit(id) {
+        const m = MEMBERS.find(x => x.id === id); if (!m) return;
+        this.form = { id: m.id, full_name: m.full_name, phone: m.phone, village_id: m.village_id, group_id: m.group_id, is_active: m.is_active, photo_url: m.photo_url, birth_date: m.birth_date ? m.birth_date.slice(0, 10) : '', parent_name: m.parent_name || '', parent_phone: m.parent_phone || '', rfid_uid: m.rfid_uid || '', marital_status: m.marital_status || '' };
+        this.preview = null; this.modal = true;
+      },
+      showQR(id) { this.qr = MEMBERS.find(x => x.id === id) || null; },
+      onPhoto(e) { const f = e.target.files[0]; this.preview = f ? URL.createObjectURL(f) : null; }
+    };
+  });
+});
+</script>
+{{end}}

@@ -1,0 +1,175 @@
+{{define "head"}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173B34">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<script>/* terapkan ukuran teks pilihan pengguna sebelum halaman tampil (hindari kedip) */
+try { var z = localStorage.getItem('hadir.zoom'); if (z) document.documentElement.style.fontSize = z + '%'; } catch (e) {}</script>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      ink: '#14211E',
+      pine: { 50:'#EEF4F1', 100:'#D9E8E2', 200:'#B5D1C7', 500:'#3B7D6E', 600:'#2A6458', 700:'#1F4D44', 800:'#173B34', 900:'#0E2A25' },
+      lamp: { 100:'#FBEBC8', 400:'#F2B544', 500:'#E49B16', 700:'#8A5A06' },
+      clay: { 100:'#F9DDD6', 500:'#C0432E', 700:'#8F2D1D' },
+      mist: '#F1F4F2'
+    },
+    fontFamily: {
+      display: ['"Bricolage Grotesque"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      sans: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif']
+    }
+  } }
+}
+</script>
+<style type="text/tailwindcss">
+  @layer base { html { font-family: Figtree, ui-sans-serif, system-ui; } }
+  @layer components {
+    .ico { width: 1.25rem; height: 1.25rem; flex: none; }
+    /* area sentuh min. 44px di layar kecil agar nyaman untuk semua usia */
+    .btn { @apply inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine-500 disabled:opacity-50 disabled:cursor-not-allowed sm:min-h-0 sm:px-3.5; }
+    .btn-primary { @apply bg-pine-800 text-white hover:bg-pine-700; }
+    .btn-lamp { @apply bg-lamp-400 text-pine-900 hover:bg-lamp-500; }
+    .btn-ghost { @apply border border-ink/20 bg-white text-ink hover:bg-pine-50; }
+    .btn-danger { @apply text-clay-500 hover:bg-clay-100; }
+    /* 16px di ponsel mencegah browser iOS memperbesar layar saat input difokuskan */
+    .field { @apply min-h-[2.75rem] w-full rounded-lg border border-ink/25 bg-white px-3 py-2 text-base text-ink placeholder:text-ink/40 outline-none transition focus:border-pine-600 focus:ring-2 focus:ring-pine-600/25 disabled:bg-mist sm:min-h-0 sm:text-sm; }
+    .lbl { @apply mb-1 block text-sm font-medium text-ink/85; }
+    .th { @apply px-4 py-2.5 text-left text-xs font-semibold text-ink/70; }
+    .td { @apply px-4 py-3 text-sm align-middle; }
+    .chip { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+    .prose-pre { white-space: pre-line; overflow-wrap: anywhere; }
+  }
+</style>
+<style>
+  [x-cloak] { display: none !important; }
+  :focus-visible { outline: 2px solid #3B7D6E; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media print { body { background: #fff !important; } .keep { break-inside: avoid; } a { text-decoration: none !important; } }
+</style>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+{{end}}
+
+{{/* Footer pembuat: sengaja samar dan tidak mencolok */}}
+{{define "footer"}}<footer class="select-none py-6 text-center text-xs tracking-wide text-ink/45 print:hidden">Dibuat oleh <span class="font-medium">yoosoncode</span></footer>{{end}}
+
+{{/* Rekap kehadiran otomatis. Menerima *models.AttendanceSummary */}}
+{{define "attsummary"}}
+<dl class="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+  <div><dt class="text-sm text-ink/70">Anggota aktif</dt><dd class="font-display text-3xl font-bold">{{.ActiveMembers}}</dd></div>
+  <div><dt class="text-sm text-ink/70">Pengajian terlaksana</dt><dd class="font-display text-3xl font-bold">{{.Sessions}}</dd></div>
+  <div><dt class="text-sm text-ink/70">Total kehadiran</dt><dd class="font-display text-3xl font-bold">{{.TotalAttendances}}</dd><p class="text-xs text-ink/70">rata-rata {{printf "%.1f" .AvgPerSession}} per pengajian</p></div>
+  <div><dt class="text-sm text-ink/70">Pernah hadir</dt><dd class="font-display text-3xl font-bold">{{.UniquePresent}} <span class="text-base font-medium text-ink/70">({{.PresentPct}}%)</span></dd></div>
+</dl>
+<p class="mt-4 text-sm {{if .NeverPresent}}text-lamp-700{{else}}text-ink/70{{end}}">
+  {{if .NeverPresent}}<strong>{{.NeverPresent}}</strong> anggota aktif belum pernah hadir pada periode ini.{{else}}Seluruh anggota aktif pernah hadir pada periode ini.{{end}}
+</p>
+{{if .ByCategory}}
+<h3 class="mt-6 text-sm font-semibold text-ink/80">Kehadiran per kategori</h3>
+<ul class="mt-2 grid gap-x-8 gap-y-3 sm:grid-cols-2">
+  {{range .ByCategory}}
+  <li class="keep">
+    <div class="flex items-center justify-between gap-2"><span class="chip {{catChip .Key}}">{{.Label}}</span><span class="text-sm tabular-nums text-ink/70"><strong class="text-ink">{{.Present}}</strong> dari {{.Active}} ({{.Pct}}%)</span></div>
+    <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/10"><div class="h-full rounded-full bg-pine-600" style="width: {{.Pct}}%"></div></div>
+  </li>
+  {{end}}
+</ul>
+{{end}}
+{{if .BySession}}
+<h3 class="mt-6 text-sm font-semibold text-ink/80">Rincian per pengajian</h3>
+<div class="mt-2 overflow-x-auto"><table class="min-w-full text-sm">
+  <tbody class="divide-y divide-ink/10">
+    {{range .BySession}}<tr class="keep"><td class="py-2 pr-4 whitespace-nowrap text-ink/70">{{dateShort .Date}}</td><td class="py-2 pr-4 font-medium">{{.Title}}</td><td class="py-2 pr-4 text-ink/70">{{.Scope}}</td><td class="py-2 text-right tabular-nums"><strong>{{.Count}}</strong> hadir</td></tr>{{end}}
+  </tbody>
+</table></div>
+{{else}}
+<p class="mt-5 text-sm text-ink/70">Belum ada kehadiran tercatat pada periode ini.</p>
+{{end}}
+{{end}}
+
+{{define "layout"}}<!DOCTYPE html>
+<html lang="id" class="h-full bg-mist">
+<head>
+  <title>{{.Title}} · Hadir</title>
+  {{template "head" .}}
+</head>
+<body class="min-h-full font-sans text-ink antialiased" x-data="{ nav: false, z: parseInt((function(){ try { return localStorage.getItem('hadir.zoom') } catch (e) { return null } })() || '100') }"
+      @keydown.escape.window="nav = false">
+
+  <a href="#main" class="sr-only rounded-lg bg-white px-4 py-2 shadow-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50">Lewati ke konten utama</a>
+
+  <!-- Sidebar -->
+  <div x-cloak x-show="nav" x-transition.opacity class="fixed inset-0 z-30 bg-ink/50 lg:hidden print:hidden" @click="nav = false"></div>
+  <aside class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-pine-900 text-pine-100 transition-transform duration-200 lg:translate-x-0 print:hidden"
+         :class="nav ? 'translate-x-0' : '-translate-x-full'" aria-label="Menu utama">
+    <div class="flex items-center gap-3 px-5 py-5">
+      <img src="/static/favicon.svg" alt="" class="h-9 w-9">
+      <div class="leading-tight">
+        <p class="font-display text-lg font-bold text-white">Hadir</p>
+        <p class="text-xs text-pine-200/80">Presensi muda-mudi</p>
+      </div>
+    </div>
+    <nav class="mt-2 flex-1 space-y-0.5 overflow-y-auto px-3">
+      {{range .Nav}}
+      <a href="{{.Href}}" class="flex min-h-[2.75rem] items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors {{if eq .Key $.Active}}bg-white/10 text-white{{else}}text-pine-100/80 hover:bg-white/5 hover:text-white{{end}}" {{if eq .Key $.Active}}aria-current="page"{{end}}>
+        {{icon .Icon}}<span>{{.Label}}</span>
+      </a>
+      {{end}}
+    </nav>
+
+    <!-- ukuran teks: untuk pengguna dari semua usia -->
+    <div class="px-4 pb-3">
+      <p class="mb-1.5 text-xs text-pine-200/80" id="zoomlbl">Ukuran teks</p>
+      <div class="grid grid-cols-3 gap-1.5" role="group" aria-labelledby="zoomlbl">
+        <button type="button" @click="z = 100; document.documentElement.style.fontSize = '100%'; try { localStorage.setItem('hadir.zoom', 100) } catch (e) {}"
+                :aria-pressed="z === 100" :class="z === 100 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
+                class="min-h-[2.5rem] rounded-md text-sm font-semibold" aria-label="Teks normal">A</button>
+        <button type="button" @click="z = 115; document.documentElement.style.fontSize = '115%'; try { localStorage.setItem('hadir.zoom', 115) } catch (e) {}"
+                :aria-pressed="z === 115" :class="z === 115 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
+                class="min-h-[2.5rem] rounded-md text-base font-semibold" aria-label="Teks besar">A</button>
+        <button type="button" @click="z = 130; document.documentElement.style.fontSize = '130%'; try { localStorage.setItem('hadir.zoom', 130) } catch (e) {}"
+                :aria-pressed="z === 130" :class="z === 130 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
+                class="min-h-[2.5rem] rounded-md text-xl font-semibold" aria-label="Teks sangat besar">A</button>
+      </div>
+    </div>
+
+    <div class="border-t border-white/10 p-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-9 w-9 flex-none place-items-center rounded-full bg-lamp-400 text-sm font-bold text-pine-900">{{initials .User.FullName}}</div>
+        <div class="min-w-0 flex-1 leading-tight">
+          <p class="truncate text-sm font-semibold text-white">{{.User.FullName}}</p>
+          <p class="text-xs text-pine-200/80">{{if .User.IsAdmin}}Admin{{else}}Pengurus{{end}}</p>
+        </div>
+        <form method="post" action="/logout">
+          <button class="grid h-11 w-11 place-items-center rounded-md text-pine-100/80 hover:bg-white/10 hover:text-white" title="Keluar" aria-label="Keluar">{{icon "logout"}}</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Konten -->
+  <div class="flex min-h-screen flex-col lg:pl-64 print:pl-0">
+    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-ink/10 bg-mist/90 px-4 py-2 backdrop-blur lg:hidden print:hidden">
+      <button @click="nav = true" class="grid h-11 w-11 place-items-center rounded-md hover:bg-ink/5" aria-label="Buka menu">{{icon "menu"}}</button>
+      <span class="font-display text-lg font-bold">{{.Title}}</span>
+    </header>
+    <main id="main" class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:py-10 print:max-w-none print:p-0">
+      {{template "content" .}}
+    </main>
+    {{template "footer"}}
+  </div>
+
+  {{with .Flash}}
+  <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 6000)" x-show="show" x-transition x-cloak
+       class="fixed bottom-4 left-4 right-4 z-50 flex items-start gap-3 rounded-xl px-4 py-3 text-sm shadow-lg sm:left-auto sm:max-w-sm print:hidden {{if eq .Kind "ok"}}bg-pine-800 text-white{{else}}bg-clay-700 text-white{{end}}" role="status">
+    <span class="mt-0.5">{{if eq .Kind "ok"}}{{icon "check"}}{{else}}{{icon "x"}}{{end}}</span>
+    <p class="flex-1">{{.Message}}</p>
+    <button @click="show = false" class="opacity-80 hover:opacity-100" aria-label="Tutup">{{icon "x"}}</button>
+  </div>
+  {{end}}
+</body>
+</html>{{end}}

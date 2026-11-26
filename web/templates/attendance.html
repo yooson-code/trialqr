@@ -1,0 +1,114 @@
+{{define "content"}}
+<div>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="font-display text-3xl font-bold">Rekap kehadiran</h1>
+      <p class="text-sm text-ink/70">{{dateStr .Filter.From}} s.d. {{dateStr .Filter.To}}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{.CSVURL}}" class="btn btn-ghost">{{icon "download"}} CSV</a>
+      <a href="{{.XLSXURL}}" class="btn btn-primary">{{icon "download"}} Excel</a>
+    </div>
+  </div>
+
+  <form method="get" id="filter" x-data="{ from: '{{.Filter.From}}', to: '{{.Filter.To}}',
+        preset(d) { const t = new Date(); const f = x => { const o = new Date(x.getTime() - x.getTimezoneOffset()*60000); return o.toISOString().slice(0,10) };
+          if (d === 'today') { this.from = this.to = f(t) } else if (d === 'month') { this.from = f(new Date(t.getFullYear(), t.getMonth(), 1)); this.to = f(t) } else { const s = new Date(t); s.setDate(t.getDate() - d); this.from = f(s); this.to = f(t) }
+          this.$nextTick(() => this.$el.submit()) } }"
+        class="mt-6 grid gap-3 rounded-xl border border-ink/10 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="lg:col-span-1"><label class="lbl" for="from">Dari</label><input class="field" type="date" id="from" name="from" x-model="from"></div>
+    <div class="lg:col-span-1"><label class="lbl" for="to">Sampai</label><input class="field" type="date" id="to" name="to" x-model="to"></div>
+    <div>
+      <label class="lbl" for="village_id">Desa</label>
+      <select class="field" id="village_id" name="village_id">
+        <option value="">Semua</option>
+        {{range .Views}}<option value="{{.ID}}" {{if eq $.Filter.VillageID .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label class="lbl" for="group_id">Kelompok</label>
+      <select class="field" id="group_id" name="group_id">
+        <option value="">Semua</option>
+        {{range .Views}}<optgroup label="{{.Name}}">{{range .Groups}}<option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+      </select>
+    </div>
+    <div>
+      <label class="lbl" for="schedule_id">Pengajian</label>
+      <select class="field" id="schedule_id" name="schedule_id">
+        <option value="">Semua</option>
+        {{range .Schedules}}<option value="{{.ID}}" {{if eq $.Filter.ScheduleID .ID}}selected{{end}}>{{.Title}} &middot; {{.Scope}} ({{dateShort .EventDate}})</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label class="lbl" for="category">Kategori</label>
+      <select class="field" id="category" name="category">
+        <option value="">Semua</option>
+        {{range .Categories}}<option value="{{.Key}}" {{if eq $.Filter.Category .Key}}selected{{end}}>{{.Label}}</option>{{end}}
+        <option value="belum" {{if eq $.Filter.Category "belum"}}selected{{end}}>Belum diisi</option>
+      </select>
+    </div>
+    <input type="hidden" name="view" id="view" value="{{.View}}">
+    <div class="flex items-end"><button class="btn btn-primary w-full">Terapkan</button></div>
+    <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+      <span class="self-center text-xs text-ink/70">Pintasan:</span>
+      <button type="button" class="chip bg-pine-100 text-pine-800 hover:bg-pine-200" @click="preset('today')">Hari ini</button>
+      <button type="button" class="chip bg-pine-100 text-pine-800 hover:bg-pine-200" @click="preset(6)">7 hari</button>
+      <button type="button" class="chip bg-pine-100 text-pine-800 hover:bg-pine-200" @click="preset('month')">Bulan ini</button>
+    </div>
+  </form>
+
+  <!-- tab tampilan -->
+  <div class="mt-6 flex gap-1 border-b border-ink/10" role="tablist">
+    <button type="button" onclick="setView('detail')" role="tab" class="-mb-px border-b-2 px-4 py-2 text-sm font-medium {{if eq .View "detail"}}border-pine-800 text-pine-800{{else}}border-transparent text-ink/70 hover:text-ink{{end}}">Harian</button>
+    <button type="button" onclick="setView('summary')" role="tab" class="-mb-px border-b-2 px-4 py-2 text-sm font-medium {{if eq .View "summary"}}border-pine-800 text-pine-800{{else}}border-transparent text-ink/70 hover:text-ink{{end}}">Per anggota</button>
+  </div>
+
+  {{if eq .View "summary"}}
+    <p class="mt-4 text-sm text-ink/70"><strong class="text-ink">{{.PresentCount}}</strong> dari {{len .Summary}} anggota aktif pernah hadir pada rentang ini.</p>
+    {{if .Summary}}
+    <div class="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
+      <table class="min-w-full divide-y divide-ink/10">
+        <thead class="bg-mist/60"><tr><th class="th">Nama</th><th class="th hidden md:table-cell">Kelompok</th><th class="th hidden lg:table-cell">Orang tua</th><th class="th text-right">Hadir</th></tr></thead>
+        <tbody class="divide-y divide-ink/10">
+          {{range .Summary}}
+          <tr><td class="td"><p class="font-medium">{{.FullName}}</p><span class="chip {{catChip .CategoryKey}} mt-0.5">{{.Category}}</span></td>
+            <td class="td hidden md:table-cell text-ink/70">{{.GroupName}}, {{.VillageName}}</td>
+            <td class="td hidden lg:table-cell text-sm">{{if .ParentName}}{{.ParentName}}{{end}}{{if .ParentPhone}}<br><a href="{{wa .ParentPhone}}" target="_blank" rel="noopener" class="text-xs text-pine-600 hover:underline">{{.ParentPhone}}</a>{{else if not .ParentName}}<span class="text-ink/35">-</span>{{end}}</td>
+            <td class="td text-right"><span class="chip {{if .Total}}bg-pine-100 text-pine-700{{else}}bg-clay-100 text-clay-700{{end}} tabular-nums">{{.Total}}x</span></td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}<p class="mt-4 rounded-xl border border-dashed border-ink/25 px-6 py-12 text-center text-sm text-ink/70">Tidak ada anggota aktif pada filter ini.</p>{{end}}
+  {{else}}
+    <p class="mt-4 text-sm text-ink/70"><strong class="text-ink">{{len .Rows}}</strong> kehadiran tercatat.</p>
+    {{if .Rows}}
+    <div class="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
+      <table class="min-w-full divide-y divide-ink/10">
+        <thead class="bg-mist/60"><tr><th class="th">Tanggal</th><th class="th">Jam</th><th class="th">Nama</th><th class="th hidden md:table-cell">Kelompok</th><th class="th hidden lg:table-cell">Pengajian</th><th class="th hidden lg:table-cell">Dicatat</th><th class="th">Metode</th><th class="th"><span class="sr-only">Aksi</span></th></tr></thead>
+        <tbody class="divide-y divide-ink/10">
+          {{range .Rows}}
+          <tr class="hover:bg-pine-50/50">
+            <td class="td whitespace-nowrap">{{dateShort .ScanDate}}</td>
+            <td class="td tabular-nums text-ink/70">{{clock .ScannedAt}}</td>
+            <td class="td"><p class="font-medium">{{.MemberName}}</p><span class="chip {{catChip .CategoryKey}} mt-0.5">{{.Category}}</span></td>
+            <td class="td hidden md:table-cell text-ink/70">{{.GroupName}}, {{.VillageName}}</td>
+            <td class="td hidden lg:table-cell text-ink/70">{{.ScheduleTitle}}</td>
+            <td class="td hidden lg:table-cell text-ink/70">{{.ScannedBy}}</td>
+            <td class="td"><span class="chip {{if eq .Method "rfid"}}bg-lamp-100 text-lamp-700{{else if eq .Method "manual"}}bg-ink/10 text-ink/70{{else}}bg-pine-100 text-pine-700{{end}}">{{if eq .Method "rfid"}}RFID{{else if eq .Method "manual"}}Manual{{else}}QR{{end}}</span></td>
+            <td class="td">
+              <form method="post" action="/attendance/{{.ID}}/delete" onsubmit="return confirm('Batalkan kehadiran {{.MemberName}} pada {{dateShort .ScanDate}}?')">
+                <input type="hidden" name="back" value="{{$.BackURL}}">
+                <button class="btn btn-danger !px-2" title="Batalkan kehadiran" aria-label="Batalkan kehadiran {{.MemberName}}">{{icon "trash"}}</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}<p class="mt-4 rounded-xl border border-dashed border-ink/25 px-6 py-12 text-center text-sm text-ink/70">Belum ada kehadiran pada rentang dan filter ini.</p>{{end}}
+  {{end}}
+</div>
+<script>function setView(v){document.getElementById("view").value=v;document.getElementById("filter").submit()}</script>
+{{end}}

@@ -1,0 +1,59 @@
+{{define "login"}}<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <title>Masuk · Hadir</title>
+  {{template "head" .}}
+  <style>
+    @keyframes sweep { 0% { transform: translateY(0); opacity: 0 } 10% { opacity: 1 } 90% { opacity: 1 } 100% { transform: translateY(100%); opacity: 0 } }
+    .sweep { animation: sweep 3.2s ease-in-out infinite; }
+  </style>
+</head>
+<body class="h-full font-sans text-ink antialiased">
+<div class="grid min-h-full lg:grid-cols-2">
+
+  <section class="relative hidden overflow-hidden bg-pine-900 p-12 text-pine-100 lg:flex lg:flex-col lg:justify-between">
+    <div class="flex items-center gap-3">
+      <img src="/static/favicon.svg" alt="" class="h-9 w-9">
+      <span class="font-display text-xl font-bold text-white">Hadir</span>
+    </div>
+    <div>
+      <div class="relative mb-10 h-56 w-56 text-lamp-400">
+        {{qrart}}
+        <div class="sweep absolute inset-x-[-12px] top-0 h-0.5 bg-white/90 shadow-[0_0_14px_3px_rgba(255,255,255,.5)]"></div>
+      </div>
+      <h1 class="font-display text-4xl font-bold leading-tight text-white">Satu scan,<br>satu kehadiran tercatat.</h1>
+      <p class="mt-4 max-w-sm text-pine-200/80">Presensi pengajian muda-mudi yang rapi: tanpa buku tulis, tanpa rekap manual di akhir bulan.</p>
+    </div>
+    <p class="text-sm text-pine-200/50">Zona waktu WIB &middot; data tersimpan di Supabase</p>
+  </section>
+
+  <section class="relative flex items-center justify-center bg-mist px-6 py-12">
+    <form method="post" action="/login" class="w-full max-w-sm">
+      <div class="mb-8 flex items-center gap-3 lg:hidden">
+        <img src="/static/favicon.svg" alt="" class="h-9 w-9"><span class="font-display text-xl font-bold">Hadir</span>
+      </div>
+      <h2 class="font-display text-3xl font-bold">Masuk</h2>
+      <p class="mt-1 text-sm text-ink/70">Khusus admin dan pengurus.</p>
+
+      {{with .Flash}}<p class="mt-5 rounded-lg bg-clay-100 px-3 py-2 text-sm text-clay-700" role="alert">{{.Message}}</p>{{end}}
+
+      <div class="mt-6 space-y-4">
+        <div>
+          <label class="lbl" for="username">Username</label>
+          <input class="field" id="username" name="username" autocomplete="username" autofocus required>
+        </div>
+        <div x-data="{ show: false }">
+          <label class="lbl" for="password">Password</label>
+          <div class="relative">
+            <input class="field pr-16" id="password" name="password" :type="show ? 'text' : 'password'" autocomplete="current-password" required>
+            <button type="button" @click="show = !show" class="absolute inset-y-0 right-0 px-3 text-xs font-medium text-pine-600" x-text="show ? 'Sembunyikan' : 'Tampilkan'">Tampilkan</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary mt-6 w-full py-2.5">Masuk</button>
+    </form>
+    <div class="absolute inset-x-0 bottom-0">{{template "footer"}}</div>
+  </section>
+</div>
+</body>
+</html>{{end}}

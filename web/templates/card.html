@@ -1,0 +1,46 @@
+{{define "card"}}<!DOCTYPE html>
+<html lang="id">
+<head>
+  <title>{{.Title}} · Hadir</title>
+  {{template "head" .}}
+  <style>
+    @page { size: A4; margin: 10mm; }
+    @media print { .no-print { display: none !important; } body { background: #fff !important; } .sheet { gap: 6mm !important; padding: 0 !important; } }
+    .idcard { width: 90mm; height: 56mm; break-inside: avoid; }
+  </style>
+</head>
+<body class="bg-mist font-sans text-ink antialiased">
+  <div class="no-print sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-ink/10 bg-white px-5 py-3">
+    <p class="text-sm"><strong>{{len .Members}}</strong> kartu &middot; ukuran 90 &times; 56 mm. Cetak di kertas A4 atau kertas tebal, lalu potong.</p>
+    <button onclick="window.print()" class="btn btn-primary">{{icon "print"}} Cetak</button>
+  </div>
+
+  <div class="sheet mx-auto flex max-w-[200mm] flex-wrap justify-center gap-5 p-6">
+    {{range .Members}}
+    <article class="idcard relative flex overflow-hidden rounded-xl border border-pine-800/20 bg-white shadow-sm">
+      <div class="absolute inset-y-0 left-0 w-2 bg-pine-800"></div>
+      <div class="absolute bottom-0 left-2 right-0 h-1.5 bg-lamp-400"></div>
+      <div class="flex flex-1 flex-col justify-between py-3 pl-6 pr-2">
+        <div>
+          <p class="font-display text-[10px] font-bold text-pine-700">Kartu anggota muda-mudi</p>
+          <div class="mt-2 flex items-center gap-2.5">
+            {{if .PhotoURL}}<img src="{{.PhotoURL}}" alt="" class="h-11 w-11 flex-none rounded-full object-cover">
+            {{else}}<div class="grid h-11 w-11 flex-none place-items-center rounded-full bg-pine-100 text-sm font-bold text-pine-700">{{initials .FullName}}</div>{{end}}
+            <p class="font-display text-[15px] font-bold leading-tight">{{.FullName}}</p>
+          </div>
+        </div>
+        <div class="text-[11px] leading-snug text-ink/70">
+          <p><span class="font-semibold text-ink">{{.GroupName}}</span></p>
+          <p>Desa {{.VillageName}}</p>
+          <p class="text-ink/70">{{.Category}}{{if .MaritalLabel}} &middot; {{.MaritalLabel}}{{end}}{{if .Age}} &middot; {{.Age}} th{{end}}</p>
+        </div>
+      </div>
+      <div class="flex w-[34mm] flex-none flex-col items-center justify-center pr-3">
+        <img src="/members/{{.ID}}/qr.png?size=300" alt="QR {{.FullName}}" class="h-[28mm] w-[28mm]">
+        <p class="mt-1 text-[8px] text-ink/70">Scan saat pengajian</p>
+      </div>
+    </article>
+    {{end}}
+  </div>
+</body>
+</html>{{end}}

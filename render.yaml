@@ -1,0 +1,27 @@
+# Blueprint Render: New > Blueprint, pilih repo ini. Nilai bertanda sync:false diisi manual di dashboard.
+services:
+  - type: web
+    name: hadir-presensi
+    runtime: docker
+    region: singapore          # terdekat dengan Supabase ap-southeast-1 dan pengguna di Indonesia
+    plan: starter              # 'free' akan tidur setelah 15 menit idle (lihat README)
+    healthCheckPath: /login
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: Administrator
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: member-photos

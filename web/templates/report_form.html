@@ -1,0 +1,129 @@
+{{define "content"}}
+<form method="post" action="{{.FormAction}}" x-data="reportForm()" class="mx-auto max-w-3xl">
+  <a href="/reports" class="text-sm font-medium text-pine-600 hover:underline">&larr; Daftar laporan</a>
+  <h1 class="mt-2 font-display text-3xl font-bold">{{if .IsNew}}Laporan baru{{else}}Ubah laporan{{end}}</h1>
+  <p class="mt-1 text-sm text-ink/70">Pelapor: <strong class="text-ink">{{.Report.AuthorName}}</strong>. Draft hanya terlihat oleh Anda sampai laporan dikirim.</p>
+
+  <!-- 1 -->
+  <section class="mt-8">
+    <h2 class="font-display text-xl font-bold"><span class="mr-2 text-lamp-500">1</span>Identitas laporan</h2>
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="lbl" for="r_period">Periode (bulan yang dilaporkan)</label>
+        <input id="r_period" type="month" name="period" value="{{periodInput .Report.Period}}" class="field" required pattern="[0-9]{4}-[0-9]{2}" placeholder="2026-05">
+      </div>
+      <div>
+        <label class="lbl" for="r_bidang">Bidang / jabatan</label>
+        <input id="r_bidang" name="bidang" value="{{.Report.Bidang}}" class="field" required maxlength="80" placeholder="Contoh: Ketua, Sekretaris, Bidang Pengajian">
+      </div>
+    </div>
+    <div class="mt-4">
+      <span class="lbl">Cakupan laporan</span>
+      <div class="inline-flex flex-wrap gap-2" role="radiogroup">
+        <label class="cursor-pointer"><input type="radio" name="level" value="daerah" x-model="level" class="peer sr-only"><span class="inline-flex min-h-[2.75rem] items-center rounded-lg border border-ink/20 px-4 text-sm font-medium peer-checked:border-pine-800 peer-checked:bg-pine-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-pine-500 sm:min-h-0 sm:py-2">Daerah</span></label>
+        <label class="cursor-pointer"><input type="radio" name="level" value="desa" x-model="level" class="peer sr-only"><span class="inline-flex min-h-[2.75rem] items-center rounded-lg border border-ink/20 px-4 text-sm font-medium peer-checked:border-pine-800 peer-checked:bg-pine-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-pine-500 sm:min-h-0 sm:py-2">Desa</span></label>
+        <label class="cursor-pointer"><input type="radio" name="level" value="kelompok" x-model="level" class="peer sr-only"><span class="inline-flex min-h-[2.75rem] items-center rounded-lg border border-ink/20 px-4 text-sm font-medium peer-checked:border-pine-800 peer-checked:bg-pine-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-pine-500 sm:min-h-0 sm:py-2">Kelompok</span></label>
+      </div>
+      <p class="mt-1.5 text-xs text-ink/70">Rekap kehadiran otomatis dihitung sesuai cakupan ini.</p>
+    </div>
+    <div x-cloak x-show="level === 'desa'" class="mt-4 sm:w-1/2">
+      <label class="lbl" for="r_village">Desa</label>
+      <select id="r_village" name="village_id" class="field" :disabled="level !== 'desa'" :required="level === 'desa'">
+        <option value="">Pilih desa</option>
+        {{range .Views}}<option value="{{.ID}}" {{if eq $.SelVillage .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <div x-cloak x-show="level === 'kelompok'" class="mt-4 sm:w-1/2">
+      <label class="lbl" for="r_group">Kelompok</label>
+      <select id="r_group" name="group_id" class="field" :disabled="level !== 'kelompok'" :required="level === 'kelompok'">
+        <option value="">Pilih kelompok</option>
+        {{range .Views}}{{if .Groups}}<optgroup label="Desa {{.Name}}">{{range .Groups}}<option value="{{.ID}}" {{if eq $.SelGroup .ID}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}{{end}}
+      </select>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold"><span class="mr-2 text-lamp-500">2</span>Ringkasan kinerja dan program kerja</h2>
+    <div class="mt-4">
+      <label class="lbl" for="r_summary">Ringkasan umum</label>
+      <textarea id="r_summary" name="summary" rows="4" maxlength="4000" class="field" placeholder="Gambaran singkat kinerja bidang Anda bulan ini">{{.Report.Summary}}</textarea>
+    </div>
+
+    <h3 class="mt-6 text-sm font-semibold text-ink/80">Daftar kegiatan</h3>
+    <p class="text-xs text-ink/70">Catat tiap kegiatan beserta capaian, kendala di lapangan, dan rencana tindak lanjutnya.</p>
+    <div class="mt-3 space-y-4">
+      <template x-for="(it, i) in items" :key="it.k">
+        <fieldset class="rounded-xl border border-ink/15 bg-white p-4">
+          <div class="flex items-center justify-between gap-3">
+            <legend class="text-sm font-semibold text-ink/70" x-text="'Kegiatan ' + (i + 1)"></legend>
+            <button type="button" @click="remove(i)" class="btn btn-danger !min-h-0 !px-2 !py-1">{{icon "trash"}} Hapus</button>
+          </div>
+          <div class="mt-3 grid gap-3 sm:grid-cols-3">
+            <label class="block sm:col-span-2"><span class="lbl">Nama kegiatan / program</span><input name="item_name" x-model="it.name" class="field" maxlength="200"></label>
+            <label class="block"><span class="lbl">Status</span>
+              <select name="item_status" x-model="it.status" class="field">{{range .Statuses}}<option value="{{.Key}}">{{.Label}}</option>{{end}}</select>
+            </label>
+            <label class="block sm:col-span-3"><span class="lbl">Capaian / progres</span><textarea name="item_achievement" x-model="it.achievement" rows="2" maxlength="4000" class="field"></textarea></label>
+            <label class="block sm:col-span-3 lg:col-span-1"><span class="lbl">Kendala / hambatan</span><textarea name="item_obstacle" x-model="it.obstacle" rows="3" maxlength="4000" class="field lg:col-span-1"></textarea></label>
+            <label class="block sm:col-span-3 lg:col-span-2"><span class="lbl">Rencana tindak lanjut</span><textarea name="item_followup" x-model="it.followup" rows="3" maxlength="4000" class="field"></textarea></label>
+          </div>
+        </fieldset>
+      </template>
+    </div>
+    <button type="button" @click="add()" class="btn btn-ghost mt-3" :disabled="items.length >= 40">{{icon "plus"}} Tambah kegiatan</button>
+  </section>
+
+  <!-- 3 -->
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold"><span class="mr-2 text-lamp-500">3</span>Rekap kehadiran</h2>
+    {{if .Summary}}
+    <p class="mt-1 text-sm text-ink/70">Dihitung otomatis dari data absensi pada periode dan cakupan laporan yang tersimpan. Ubah periode atau cakupan lalu simpan untuk memperbarui.</p>
+    <div class="mt-4 rounded-xl border border-ink/10 bg-white p-5">{{template "attsummary" .Summary}}</div>
+    {{else}}
+    <p class="mt-1 text-sm text-ink/70">Rekap kehadiran dari data absensi akan muncul otomatis setelah laporan disimpan.</p>
+    {{end}}
+    <div class="mt-4">
+      <label class="lbl" for="r_att">Catatan untuk melengkapi data kehadiran <span class="font-normal text-ink/70">(opsional)</span></label>
+      <textarea id="r_att" name="attendance_note" rows="3" maxlength="4000" class="field" placeholder="Contoh: anggota yang sedang merantau, kegiatan tanpa absensi, alasan ketidakhadiran">{{.Report.AttendanceNote}}</textarea>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold"><span class="mr-2 text-lamp-500">4</span>Catatan dan usulan untuk musyawarah</h2>
+    <div class="mt-4 space-y-4">
+      <div><label class="lbl" for="r_eval">Poin evaluasi</label><textarea id="r_eval" name="evaluation" rows="3" maxlength="4000" class="field">{{.Report.Evaluation}}</textarea></div>
+      <div><label class="lbl" for="r_budget">Kebutuhan anggaran / logistik</label><textarea id="r_budget" name="budget_needs" rows="3" maxlength="4000" class="field" placeholder="Rincikan barang/dana yang dibutuhkan beserta perkiraan jumlahnya">{{.Report.BudgetNeeds}}</textarea></div>
+      <div><label class="lbl" for="r_topics">Topik yang ingin dibahas di musyawarah</label><textarea id="r_topics" name="topics" rows="3" maxlength="4000" class="field">{{.Report.Topics}}</textarea></div>
+    </div>
+  </section>
+
+  <div class="sticky bottom-0 z-10 -mx-4 mt-10 flex flex-wrap justify-end gap-2 border-t border-ink/10 bg-mist/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:backdrop-blur-none">
+    <a href="{{if .IsNew}}/reports{{else}}/reports/{{.Report.ID}}{{end}}" class="btn btn-ghost">Batal</a>
+    {{if .Report.IsSubmitted}}
+    <button name="action" value="save" class="btn btn-primary">Simpan perubahan</button>
+    {{else}}
+    <button name="action" value="save" class="btn btn-ghost">Simpan draft</button>
+    <button name="action" value="submit" class="btn btn-primary">Simpan &amp; kirim</button>
+    {{end}}
+  </div>
+</form>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('reportForm', () => {
+    const INIT = {{.Report.Items}} || [];
+    let seq = 0;
+    const mk = (o) => ({ k: ++seq, name: (o && o.name) || '', status: (o && o.status) || 'berjalan',
+      achievement: (o && o.achievement) || '', obstacle: (o && o.obstacle) || '', followup: (o && o.followup) || '' });
+    return {
+      level: {{.Report.Level}},
+      items: (INIT.length ? INIT : [{}]).map(mk),
+      add() { if (this.items.length < 40) this.items.push(mk()); },
+      remove(i) { this.items.splice(i, 1); if (!this.items.length) this.items.push(mk()); }
+    };
+  });
+});
+</script>
+{{end}}

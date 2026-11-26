@@ -1,0 +1,109 @@
+{{define "content"}}
+<div x-data="{ open: false, level: 'daerah' }">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="font-display text-3xl font-bold">Jadwal pengajian</h1>
+      <p class="text-sm text-ink/70">Jadwal yang aktif bisa dipilih di halaman scanner.</p>
+    </div>
+    <button class="btn btn-primary" @click="open = !open">{{icon "plus"}} Jadwal baru</button>
+  </div>
+
+  <form x-cloak x-show="open" x-transition method="post" action="/schedules" class="mt-6 grid gap-4 rounded-xl border border-ink/10 bg-white p-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="sm:col-span-2 lg:col-span-4">
+      <span class="lbl">Cakupan pengajian</span>
+      <div class="inline-flex flex-wrap gap-2" role="radiogroup">
+        <label class="cursor-pointer">
+          <input type="radio" name="level" value="daerah" x-model="level" class="peer sr-only">
+          <span class="inline-flex rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium peer-checked:border-pine-800 peer-checked:bg-pine-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-pine-500">Daerah</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="level" value="desa" x-model="level" class="peer sr-only">
+          <span class="inline-flex rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium peer-checked:border-pine-800 peer-checked:bg-pine-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-pine-500">Desa</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="level" value="kelompok" x-model="level" class="peer sr-only">
+          <span class="inline-flex rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium peer-checked:border-pine-800 peer-checked:bg-pine-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-pine-500">Kelompok</span>
+        </label>
+      </div>
+      <p class="mt-1.5 text-xs text-ink/70">
+        <span x-show="level === 'daerah'">Terbuka untuk semua anggota.</span>
+        <span x-cloak x-show="level === 'desa'">Hanya anggota dari desa yang dipilih yang bisa absen.</span>
+        <span x-cloak x-show="level === 'kelompok'">Hanya anggota dari kelompok yang dipilih yang bisa absen.</span>
+      </p>
+    </div>
+
+    <div x-cloak x-show="level === 'desa'" class="sm:col-span-2">
+      <label class="lbl" for="s_village">Desa</label>
+      <select id="s_village" name="village_id" class="field" :disabled="level !== 'desa'" :required="level === 'desa'">
+        <option value="">Pilih desa</option>
+        {{range .Views}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <div x-cloak x-show="level === 'kelompok'" class="sm:col-span-2">
+      <label class="lbl" for="s_group">Kelompok</label>
+      <select id="s_group" name="group_id" class="field" :disabled="level !== 'kelompok'" :required="level === 'kelompok'">
+        <option value="">Pilih kelompok</option>
+        {{range .Views}}{{if .Groups}}<optgroup label="Desa {{.Name}}">{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}{{end}}
+      </select>
+    </div>
+    {{if not .Views}}<p x-cloak x-show="level !== 'daerah'" class="text-sm text-lamp-700 sm:col-span-2">Belum ada desa dan kelompok. <a href="/master" class="font-semibold underline">Isi dulu di Desa &amp; kelompok</a>.</p>{{end}}
+
+    <div class="sm:col-span-2">
+      <label class="lbl" for="s_title">Nama pengajian</label>
+      <input id="s_title" name="title" class="field" placeholder="Contoh: Pengajian rutin malam Jumat" required maxlength="120">
+    </div>
+    <div>
+      <label class="lbl" for="s_date">Tanggal</label>
+      <input id="s_date" type="date" name="event_date" value="{{.Today}}" class="field" required>
+    </div>
+    <div>
+      <label class="lbl" for="s_time">Jam mulai</label>
+      <input id="s_time" type="time" name="start_time" class="field">
+    </div>
+    <div class="sm:col-span-2 lg:col-span-3">
+      <label class="lbl" for="s_loc">Tempat <span class="font-normal text-ink/70">(opsional)</span></label>
+      <input id="s_loc" name="location" class="field" maxlength="120">
+    </div>
+    <div class="flex items-end"><button class="btn btn-primary w-full">Simpan jadwal</button></div>
+  </form>
+
+  {{if .Schedules}}
+  <div class="mt-6 overflow-x-auto rounded-xl border border-ink/10 bg-white">
+    <table class="min-w-full divide-y divide-ink/10">
+      <thead class="bg-mist/60"><tr><th class="th">Pengajian</th><th class="th">Cakupan</th><th class="th">Waktu</th><th class="th hidden sm:table-cell">Hadir</th><th class="th">Status</th><th class="th text-right">Aksi</th></tr></thead>
+      <tbody class="divide-y divide-ink/10">
+        {{range .Schedules}}
+        <tr>
+          <td class="td"><p class="font-semibold">{{.Title}}</p>{{if .Location}}<p class="text-xs text-ink/70">{{.Location}}</p>{{end}}</td>
+          <td class="td">
+            <span class="chip {{if eq .Level "desa"}}bg-lamp-100 text-lamp-700{{else if eq .Level "kelompok"}}bg-pine-100 text-pine-700{{else}}bg-pine-800 text-white{{end}}">{{if eq .Level "desa"}}Desa{{else if eq .Level "kelompok"}}Kelompok{{else}}Daerah{{end}}</span>
+            {{if eq .Level "desa"}}<p class="mt-0.5 text-xs text-ink/70">{{.VillageName}}</p>{{end}}
+            {{if eq .Level "kelompok"}}<p class="mt-0.5 text-xs text-ink/70">{{.GroupName}}, Desa {{.VillageName}}</p>{{end}}
+          </td>
+          <td class="td whitespace-nowrap">{{date .EventDate}}{{if .StartTime}}<span class="text-ink/70"> &middot; {{.StartTime}}</span>{{end}}</td>
+          <td class="td hidden sm:table-cell tabular-nums">{{.AttendCount}}</td>
+          <td class="td">{{if .IsActive}}<span class="chip bg-pine-100 text-pine-700">Aktif</span>{{else}}<span class="chip bg-ink/10 text-ink/70">Nonaktif</span>{{end}}</td>
+          <td class="td">
+            <div class="flex justify-end gap-1">
+              <form method="post" action="/schedules/{{.ID}}/toggle">
+                <input type="hidden" name="active" value="{{if .IsActive}}0{{else}}1{{end}}">
+                <button class="btn btn-ghost">{{if .IsActive}}Nonaktifkan{{else}}Aktifkan{{end}}</button>
+              </form>
+              <form method="post" action="/schedules/{{.ID}}/delete" onsubmit="return confirm('Hapus jadwal ini?')">
+                <button class="btn btn-danger !px-2.5" aria-label="Hapus jadwal {{.Title}}">{{icon "trash"}}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="mt-6 rounded-xl border border-dashed border-ink/25 px-6 py-14 text-center">
+    <p class="font-display text-xl font-bold">Belum ada jadwal</p>
+    <p class="mx-auto mt-1 max-w-sm text-sm text-ink/70">Buat jadwal pengajian pertama agar scanner bisa mencatat kehadiran.</p>
+  </div>
+  {{end}}
+</div>
+{{end}}

@@ -1,0 +1,338 @@
+{{define "content"}}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  .corner { position:absolute; width:2.25rem; height:2.25rem; border:4px solid #F2B544; transition:border-color .2s; }
+  .c-tl { top:12%; left:12%; border-right:0; border-bottom:0; border-top-left-radius:.75rem; }
+  .c-tr { top:12%; right:12%; border-left:0; border-bottom:0; border-top-right-radius:.75rem; }
+  .c-bl { bottom:12%; left:12%; border-right:0; border-top:0; border-bottom-left-radius:.75rem; }
+  .c-br { bottom:12%; right:12%; border-left:0; border-top:0; border-bottom-right-radius:.75rem; }
+  .tone-ok .corner { border-color:#6EE7B7 } .tone-dup .corner { border-color:#F2B544 } .tone-bad .corner { border-color:#FCA5A5 }
+  #reader video { width:100% !important; height:100% !important; object-fit:cover; }
+  #reader { border:0 !important; }
+  @keyframes pop { 0% { transform:scale(.92); opacity:0 } 100% { transform:scale(1); opacity:1 } }
+  .pop { animation: pop .18s ease-out; }
+  @keyframes ring { 0% { box-shadow:0 0 0 0 rgba(242,181,68,.55) } 100% { box-shadow:0 0 0 22px rgba(242,181,68,0) } }
+  .ring { animation: ring 1.8s ease-out infinite; }
+</style>
+
+<div x-data="scanner()" x-init="init()" class="grid gap-8 lg:grid-cols-5">
+
+  <!-- Area scan -->
+  <section class="lg:col-span-3">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="font-display text-3xl font-bold">Scanner</h1>
+        <p class="text-sm text-ink/70" x-text="mode === 'qr' ? 'Arahkan kamera ke QR Code di kartu anggota.' : 'Tempelkan kartu RFID anggota pada reader.'"></p>
+      </div>
+      <div class="text-right">
+        <p class="font-display text-4xl font-bold leading-none" x-text="count">0</p>
+        <p class="text-xs text-ink/70">tercatat sesi ini</p>
+      </div>
+    </div>
+
+    <!-- pilihan mode -->
+    <div class="mb-3 inline-flex rounded-lg bg-ink/5 p-1" role="tablist">
+      <button role="tab" :aria-selected="mode==='qr'" @click="setMode('qr')" class="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors" :class="mode==='qr' ? 'bg-white shadow-sm' : 'text-ink/70 hover:text-ink'">{{icon "camera"}} Kamera QR</button>
+      <button role="tab" :aria-selected="mode==='rfid'" @click="setMode('rfid')" class="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors" :class="mode==='rfid' ? 'bg-white shadow-sm' : 'text-ink/70 hover:text-ink'">{{icon "card"}} Kartu RFID</button>
+    </div>
+
+    <div class="relative aspect-square w-full overflow-hidden rounded-2xl bg-pine-900 sm:aspect-[4/3] lg:aspect-square"
+         :class="{ 'tone-ok': flash==='ok', 'tone-dup': flash==='dup', 'tone-bad': flash==='bad' }">
+
+      <!-- QR -->
+      <div id="reader" class="absolute inset-0" x-show="mode==='qr'"></div>
+      <div x-show="mode==='qr' && !running" class="absolute inset-0 grid place-items-center p-6 text-center text-pine-100">
+        <div>
+          <div class="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-white/10">{{icon "camera"}}</div>
+          <p class="font-display text-xl font-bold text-white" x-text="err ? 'Kamera tidak bisa dibuka' : 'Kamera belum aktif'"></p>
+          <p class="mx-auto mt-1 max-w-xs text-sm text-pine-200/80" x-text="err || 'Pilih jadwal pengajian, lalu tekan Mulai scan.'"></p>
+        </div>
+      </div>
+      <div x-show="mode==='qr' && running" class="pointer-events-none absolute inset-0">
+        <span class="corner c-tl"></span><span class="corner c-tr"></span><span class="corner c-bl"></span><span class="corner c-br"></span>
+      </div>
+
+      <!-- RFID -->
+      <div x-cloak x-show="mode==='rfid'" class="absolute inset-0 grid place-items-center p-6 text-center text-pine-100">
+        <div class="w-full max-w-xs">
+          <div class="ring mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-lamp-400 text-pine-900">
+            <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+          </div>
+          <p class="font-display text-2xl font-bold text-white">Tempelkan kartu</p>
+          <p class="mt-1 text-sm text-pine-200/80">Reader USB dikenali sebagai keyboard, jadi tidak perlu pengaturan khusus.</p>
+          <input x-ref="rfid" x-model="rfidBuf" @keydown.enter.prevent="submitRFID()" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="none"
+                 aria-label="Nomor kartu RFID" placeholder="Menunggu kartu"
+                 class="mt-5 w-full rounded-lg bg-white/10 px-3 py-2.5 text-center font-mono text-sm tracking-[0.2em] text-white outline-none placeholder:tracking-normal placeholder:text-pine-200/50 focus:ring-2 focus:ring-lamp-400">
+          <p class="mt-2 text-xs" :class="rfidFocused ? 'text-emerald-300' : 'text-lamp-400'" x-text="rfidFocused ? 'Reader siap' : 'Klik area ini agar reader siap'"></p>
+        </div>
+      </div>
+
+      <!-- umpan balik visual -->
+      <div x-cloak x-show="flash" x-transition.opacity.duration.150ms
+           class="pointer-events-none absolute inset-0 grid place-items-center"
+           :class="{ 'bg-emerald-500/85': flash==='ok', 'bg-lamp-400/90': flash==='dup', 'bg-clay-500/90': flash==='bad' }">
+        <div class="pop text-center text-white" :class="{ '!text-pine-900': flash==='dup' }">
+          <svg x-show="flash==='ok'" class="mx-auto h-20 w-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+          <svg x-show="flash==='dup'" class="mx-auto h-20 w-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <svg x-show="flash==='bad'" class="mx-auto h-20 w-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <p class="mt-2 font-display text-2xl font-bold" x-text="result ? result.title : ''"></p>
+          <p class="mt-1 text-lg font-medium" x-show="result && result.member" x-text="result && result.member ? result.member.name : ''"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <template x-if="mode==='qr'">
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="btn btn-primary" x-show="!running" @click="start()" :disabled="!scheduleId">{{icon "camera"}} Mulai scan</button>
+          <button class="btn btn-ghost" x-show="running" @click="stop()">Berhenti</button>
+          <button class="btn btn-ghost" x-show="running && cameras.length > 1" @click="switchCamera()">{{icon "flip"}} Ganti kamera</button>
+        </div>
+      </template>
+      <button class="btn btn-ghost ml-auto" @click="muted = !muted; if(!muted) beep('ok')" :aria-pressed="muted">
+        <span x-show="!muted">{{icon "volume"}}</span><span x-cloak x-show="muted">{{icon "mute"}}</span>
+        <span x-text="muted ? 'Suara mati' : 'Suara hidup'"></span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Panel kanan -->
+  <section class="space-y-8 lg:col-span-2">
+    <div>
+      <label class="lbl" for="schedule">Jadwal pengajian</label>
+      {{if .Schedules}}
+      <select id="schedule" class="field" x-model="scheduleId">
+        {{range .Schedules}}<option value="{{.ID}}">{{.Title}} &middot; {{.Scope}} &middot; {{dateShort .EventDate}}{{if .StartTime}} {{.StartTime}}{{end}}</option>{{end}}
+      </select>
+      <p class="mt-1.5 text-xs font-medium" :class="scope.restricted ? 'text-lamp-700' : 'text-ink/70'" x-text="scope.text"></p>
+      <p class="mt-0.5 text-xs text-ink/70">Satu anggota hanya bisa absen sekali per hari, lewat QR, RFID, maupun manual.</p>
+      {{else}}
+      <div class="rounded-lg border border-dashed border-ink/25 p-4 text-sm">
+        <p class="font-medium">Belum ada jadwal aktif.</p>
+        <p class="mt-0.5 text-ink/70">Buat jadwal dulu supaya scanner tahu absensi ini untuk pengajian yang mana.</p>
+        <a href="/schedules" class="btn btn-primary mt-3">Buat jadwal</a>
+      </div>
+      {{end}}
+    </div>
+
+    <!-- hasil terakhir -->
+    <div aria-live="polite">
+      <h2 class="font-display text-xl font-bold">Hasil terakhir</h2>
+      <template x-if="!result"><p class="mt-3 rounded-lg border border-dashed border-ink/20 px-4 py-8 text-center text-sm text-ink/70">Belum ada scan.</p></template>
+      <template x-if="result">
+        <div class="pop mt-3 flex items-center gap-4 rounded-xl border-l-4 bg-white p-4"
+             :class="{ 'border-emerald-500': result.tone==='ok', 'border-lamp-400': result.tone==='dup', 'border-clay-500': result.tone==='bad' }">
+          <template x-if="result.member && result.member.photo_url"><img :src="result.member.photo_url" alt="" class="h-16 w-16 flex-none rounded-full object-cover"></template>
+          <template x-if="result.member && !result.member.photo_url"><div class="grid h-16 w-16 flex-none place-items-center rounded-full bg-pine-100 text-lg font-bold text-pine-700" x-text="result.member.initials"></div></template>
+          <template x-if="!result.member"><div class="grid h-16 w-16 flex-none place-items-center rounded-full bg-clay-100 text-clay-500"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div></template>
+          <div class="min-w-0">
+            <p class="truncate font-display text-lg font-bold" x-text="result.member ? result.member.name : result.title"></p>
+            <p class="truncate text-sm text-ink/70" x-show="result.member" x-text="result.member ? result.member.group + ', ' + result.member.village : ''"></p>
+            <p class="text-xs text-ink/70" x-show="result.member && result.member.category" x-text="result.member ? result.member.category + (result.member.marital_label ? ' · ' + result.member.marital_label : '') + (result.member.age != null ? ' · ' + result.member.age + ' th' : '') : ''"></p>
+            <p class="mt-1 text-sm" :class="{ 'text-emerald-700': result.tone==='ok', 'text-lamp-700': result.tone==='dup', 'text-clay-700': result.tone==='bad' }" x-text="result.detail"></p>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- absen manual -->
+    <div>
+      <h2 class="font-display text-xl font-bold">Absen manual</h2>
+      <p class="text-xs text-ink/70">Untuk anggota yang lupa kartu atau HP-nya mati.</p>
+      <div class="relative mt-2">
+        <span class="pointer-events-none absolute left-3 top-2.5 text-ink/40">{{icon "search"}}</span>
+        <input class="field pl-10" type="search" x-model="manualQ" @input.debounce.300ms="searchManual()" placeholder="Cari nama anggota" autocomplete="off" aria-label="Cari anggota">
+      </div>
+      <ul class="mt-1 divide-y divide-ink/10">
+        <template x-for="m in manualRes" :key="m.id">
+          <li class="flex items-center gap-3 py-2.5">
+            <div class="grid h-9 w-9 flex-none place-items-center rounded-full bg-pine-100 text-xs font-bold text-pine-700" x-text="m.initials"></div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold" x-text="m.name"></p>
+              <p class="truncate text-xs text-ink/70" x-text="m.group + ', ' + m.village"></p>
+            </div>
+            <button class="btn btn-ghost !py-1.5" @click="markManual(m)" :disabled="!scheduleId">Hadirkan</button>
+          </li>
+        </template>
+      </ul>
+      <p x-cloak x-show="manualQ.trim().length >= 2 && !manualRes.length && !searching" class="mt-2 text-sm text-ink/70">Tidak ada anggota aktif yang cocok.</p>
+    </div>
+
+    <div x-show="log.length" x-cloak>
+      <h2 class="font-display text-xl font-bold">Riwayat sesi ini</h2>
+      <ul class="mt-2 divide-y divide-ink/10">
+        <template x-for="l in log" :key="l.key">
+          <li class="flex items-center gap-3 py-2.5">
+            <span class="h-2 w-2 flex-none rounded-full" :class="{ 'bg-emerald-500': l.tone==='ok', 'bg-lamp-400': l.tone==='dup', 'bg-clay-500': l.tone==='bad' }"></span>
+            <span class="min-w-0 flex-1 truncate text-sm" x-text="l.name"></span>
+            <span class="chip bg-ink/10 text-ink/70" x-text="l.via"></span>
+            <span class="text-xs tabular-nums text-ink/70" x-text="l.time"></span>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+function scanner() {
+  const SCHEDULES = {{.Schedules}} || [];
+  const VIA = { qr: 'QR', rfid: 'RFID', manual: 'Manual' };
+  return {
+    scheduleId: '', mode: 'qr', running: false, muted: false, err: '',
+    cameras: [], camIdx: 0, qr: null, ac: null,
+    flash: null, result: null, log: [], count: 0, last: { key: '', at: 0 }, lock: false,
+    get scope() {
+      const s = SCHEDULES.find(x => String(x.id) === String(this.scheduleId));
+      if (!s || s.level === 'daerah') return { restricted: false, text: 'Terbuka untuk semua anggota daerah.' };
+      return { restricted: true, text: 'Khusus anggota ' + s.scope + '.' };
+    },
+    rfidBuf: '', rfidFocused: false, manualQ: '', manualRes: [], searching: false,
+
+    init() {
+      const saved = localStorage.getItem('hadir.schedule');
+      const ids = SCHEDULES.map(s => String(s.id));
+      this.scheduleId = ids.includes(saved) ? saved : (ids[0] || '');
+      this.muted = localStorage.getItem('hadir.muted') === '1';
+      this.$watch('scheduleId', v => localStorage.setItem('hadir.schedule', v));
+      this.$watch('muted', v => localStorage.setItem('hadir.muted', v ? '1' : '0'));
+      window.addEventListener('beforeunload', () => this.qr && this.qr.isScanning && this.qr.stop());
+
+      // Reader RFID mengetik seperti keyboard: pastikan input selalu menerima fokus.
+      const refocus = () => { if (this.mode === 'rfid' && this.$refs.rfid && !['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) this.$refs.rfid.focus(); };
+      document.addEventListener('click', e => { if (!e.target.closest('input,select,textarea,button,a')) refocus(); });
+      window.addEventListener('keydown', refocus);
+      this.$nextTick(() => {
+        this.$refs.rfid.addEventListener('focus', () => this.rfidFocused = true);
+        this.$refs.rfid.addEventListener('blur', () => this.rfidFocused = false);
+      });
+    },
+
+    async setMode(m) {
+      if (m === this.mode) return;
+      if (m === 'rfid') await this.stop();
+      this.mode = m;
+      this.ensureAudio();
+      if (m === 'rfid') this.$nextTick(() => this.$refs.rfid.focus());
+    },
+
+    ensureAudio() {
+      this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ac.state === 'suspended') this.ac.resume();
+    },
+
+    /* ---------- Kamera QR ---------- */
+    async start(cameraId) {
+      this.err = '';
+      try {
+        this.ensureAudio(); // harus dibuat dari klik pengguna
+        this.qr = this.qr || new Html5Qrcode('reader', { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], verbose: false });
+        await this.qr.start(
+          cameraId ? { deviceId: { exact: cameraId } } : { facingMode: 'environment' },
+          { fps: 12, aspectRatio: 1, qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.68); return { width: s, height: s }; } },
+          txt => this.send({ token: txt }, 'qr:' + txt, 'qr'), () => {}
+        );
+        this.running = true;
+        if (!this.cameras.length) { try { this.cameras = await Html5Qrcode.getCameras(); } catch (e) {} }
+      } catch (e) {
+        this.running = false;
+        this.err = (location.protocol !== 'https:' && location.hostname !== 'localhost')
+          ? 'Browser hanya mengizinkan kamera lewat HTTPS atau localhost.'
+          : 'Izinkan akses kamera di browser, lalu coba lagi.';
+      }
+    },
+    async stop() {
+      try { if (this.qr && this.qr.isScanning) await this.qr.stop(); } catch (e) {}
+      this.running = false;
+    },
+    async switchCamera() {
+      if (this.cameras.length < 2) return;
+      this.camIdx = (this.camIdx + 1) % this.cameras.length;
+      await this.stop();
+      await this.start(this.cameras[this.camIdx].id);
+    },
+
+    /* ---------- RFID & manual ---------- */
+    submitRFID() {
+      const uid = this.rfidBuf.trim();
+      this.rfidBuf = '';
+      if (uid) this.send({ rfid_uid: uid }, 'rfid:' + uid.toUpperCase(), 'rfid');
+    },
+    async searchManual() {
+      const q = this.manualQ.trim();
+      if (q.length < 2) { this.manualRes = []; return; }
+      this.searching = true;
+      try {
+        const r = await fetch('/api/v1/members/search?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
+        if (r.status === 401) { location.href = '/login'; return; }
+        this.manualRes = (await r.json()).members || [];
+      } catch (e) { this.manualRes = []; }
+      this.searching = false;
+    },
+    async markManual(m) {
+      await this.send({ member_id: m.id }, 'manual:' + m.id, 'manual', true);
+      this.manualQ = ''; this.manualRes = [];
+    },
+
+    /* ---------- kirim ke API ---------- */
+    async send(payload, key, via, force) {
+      const now = Date.now();
+      if (this.lock) return;                                              // sedang memproses
+      if (!force && key === this.last.key && now - this.last.at < 3500) return; // kartu/QR yang sama masih menempel
+      this.last = { key, at: now };
+      this.lock = true;
+      try {
+        const res = await fetch('/api/v1/scan', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, schedule_id: Number(this.scheduleId) })
+        });
+        if (res.status === 401) { location.href = '/login'; return; }
+        const d = await res.json().catch(() => ({ status: 'error', message: 'Respons server tidak terbaca' }));
+        this.show(d, via);
+      } catch (e) {
+        this.show({ status: 'error', message: 'Tidak ada koneksi ke server' }, via);
+      } finally {
+        setTimeout(() => { this.lock = false; }, 1200);
+      }
+    },
+
+    show(d, via) {
+      const tone = d.status === 'success' ? 'ok' : d.status === 'duplicate' ? 'dup' : 'bad';
+      const title = { ok: 'Hadir', dup: 'Sudah absen', bad: d.reason === 'scope' ? 'Di luar cakupan' : d.reason === 'inactive' ? 'Anggota nonaktif' : d.status === 'invalid' ? (via === 'rfid' ? 'Kartu tidak dikenal' : 'QR tidak valid') : 'Gagal' }[tone];
+      const detail = tone === 'ok' ? 'Tercatat pukul ' + d.scanned_at + ' WIB'
+                   : tone === 'dup' ? 'Sudah absen hari ini pukul ' + d.scanned_at + ' WIB'
+                   : d.message;
+      this.result = { tone, title, detail, member: d.member || null };
+      this.log.unshift({ key: Date.now() + Math.random(), tone, via: VIA[via] || '', name: d.member ? d.member.name : title,
+        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) });
+      this.log = this.log.slice(0, 8);
+      if (tone === 'ok') this.count++;
+
+      this.flash = tone;
+      clearTimeout(this._ft);
+      this._ft = setTimeout(() => { this.flash = null; }, 1000);
+      this.beep(tone);
+      if (navigator.vibrate) navigator.vibrate(tone === 'ok' ? 80 : tone === 'dup' ? [60, 50, 60] : 300);
+    },
+
+    beep(tone) {
+      if (this.muted || !this.ac) return;
+      const seq = { ok: [[880, .08], [1320, .14]], dup: [[520, .1], [520, .1]], bad: [[170, .35]] }[tone] || [];
+      let t = this.ac.currentTime;
+      seq.forEach(([f, d]) => {
+        const o = this.ac.createOscillator(), g = this.ac.createGain();
+        o.type = tone === 'bad' ? 'sawtooth' : 'sine';
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.28, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        o.connect(g); g.connect(this.ac.destination);
+        o.start(t); o.stop(t + d + 0.02);
+        t += d + 0.05;
+      });
+    }
+  };
+}
+</script>
+{{end}}
