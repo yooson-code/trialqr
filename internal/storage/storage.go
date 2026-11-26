@@ -7,6 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	_ "image/png" // mendaftarkan decoder PNG
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -16,11 +20,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp" // mendaftarkan decoder WebP
 
 	"presensi-qr/internal/config"
 )
 
-const maxPhoto = 2 << 20 // 2 MB
+const (
+	maxUpload = 10 << 20 // foto mentah dari kamera HP boleh sampai 10 MB; hasil akhir jauh lebih kecil
+	maxDim    = 800      // sisi terpanjang hasil kompres (px)
+	jpegQ     = 80
+	maxPixels = 25_000_000
+)
 
 type Storage struct {
 	url, key, bucket, dir string
@@ -41,38 +52,72 @@ func (s *Storage) remote() bool { return s.url != "" && s.key != "" }
 
 func (s *Storage) LocalDir() string { return s.dir }
 
-// SavePhoto memvalidasi (ukuran + isi file sebenarnya) lalu menyimpan, mengembalikan URL publik.
+// compress menormalkan foto: ubah ukuran (maks. 800 px), simpan sebagai JPEG kualitas 80,
+// dan otomatis membuang metadata EXIF (termasuk lokasi GPS). PNG transparan diberi latar putih.
+func compress(data []byte) ([]byte, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, errors.New("foto tidak bisa dibaca, coba foto lain")
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > maxPixels {
+		return nil, errors.New("resolusi foto terlalu besar")
+	}
+	src, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, errors.New("foto tidak bisa dibaca, coba foto lain")
+	}
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if longest := max(w, h); longest > maxDim {
+		w, h = max(1, w*maxDim/longest), max(1, h*maxDim/longest)
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	xdraw.Draw(dst, dst.Bounds(), image.NewUniform(color.White), image.Point{}, xdraw.Src)
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, b, xdraw.Over, nil)
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: jpegQ}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// SavePhoto memvalidasi isi file sebenarnya, mengompresnya, lalu menyimpan. Mengembalikan URL publik.
 func (s *Storage) SavePhoto(ctx context.Context, fh *multipart.FileHeader) (string, error) {
-	if fh.Size > maxPhoto {
-		return "", errors.New("ukuran foto maksimal 2 MB")
+	if fh.Size > maxUpload {
+		return "", errors.New("ukuran foto maksimal 10 MB")
 	}
 	f, err := fh.Open()
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, maxPhoto+1))
+	data, err := io.ReadAll(io.LimitReader(f, maxUpload+1))
 	if err != nil {
 		return "", err
 	}
-	if len(data) > maxPhoto {
-		return "", errors.New("ukuran foto maksimal 2 MB")
+	if len(data) > maxUpload {
+		return "", errors.New("ukuran foto maksimal 10 MB")
 	}
-
-	ct := http.DetectContentType(data)
-	ext := map[string]string{"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[ct]
-	if ext == "" {
+	switch http.DetectContentType(data) {
+	case "image/jpeg", "image/png", "image/webp":
+	default:
 		return "", errors.New("format foto harus JPG, PNG, atau WebP")
 	}
-	name := uuid.NewString() + ext
+
+	small, err := compress(data)
+	if err != nil {
+		return "", err
+	}
+	name := uuid.NewString() + ".jpg"
 
 	if s.remote() {
-		return s.upload(ctx, name, ct, data)
+		return s.upload(ctx, name, "image/jpeg", small)
 	}
 	if err := os.MkdirAll(s.dir, 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(s.dir, name), data, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(s.dir, name), small, 0o644); err != nil {
 		return "", err
 	}
 	return "/uploads/" + name, nil

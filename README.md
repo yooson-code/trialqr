@@ -73,6 +73,21 @@ Untuk forum musyawarah, **Ringkasan musyawarah** (tombol di daftar laporan) meny
 rekap kehadiran seluruh daerah, daftar usulan topik, kebutuhan anggaran, serta kendala beserta tindak lanjutnya, lalu laporan tiap pengurus.
 Halaman ini siap dicetak atau disimpan sebagai PDF lewat dialog cetak browser, dan datanya bisa diekspor ke Excel (dua sheet: Laporan dan Kegiatan).
 
+## Tampilan ponsel
+
+- **Navigasi bawah** ala aplikasi: Beranda, Rekap, tombol **Scan** besar di tengah, Anggota, dan Menu. Menu membuka panel geser dari bawah
+  (tarik gagangnya ke bawah untuk menutup) berisi sisa menu, ukuran teks, dan tombol keluar.
+- Daftar anggota, rekap, jadwal, dan akun tampil sebagai **kartu** di layar kecil (bukan tabel yang harus digeser).
+- Umpan balik sentuhan: tombol mengecil saat ditekan dan getar singkat (Android), serta transisi halus antar halaman di browser yang mendukung.
+- Aplikasi bisa **ditambahkan ke layar utama** (manifest + ikon) dan terbuka layar penuh tanpa bilah browser. Area "poni" dan bilah gestur iPhone/Android ikut diperhitungkan.
+
+## Foto anggota: kompres otomatis
+
+- **Di browser:** foto langsung dikecilkan saat dipilih (sisi terpanjang 800 px, JPEG kualitas 80), orientasi diperbaiki, dan ukuran sebelum/sesudah ditampilkan.
+  Foto kamera HP 4 MB biasanya menjadi sekitar 100 KB, jadi unggahan cepat dan hemat kuota.
+- **Di server:** foto dikompres ulang dengan aturan yang sama (jaring pengaman bila browser tidak bisa mengompres), metadata EXIF/GPS dibuang,
+  dan batas unggahan mentah 10 MB. Semua foto tersimpan sebagai JPEG.
+
 ## Aksesibilitas
 
 - Pengaturan **Ukuran teks** (normal / besar / sangat besar) di menu samping, tersimpan di perangkat.

@@ -1,8 +1,14 @@
 {{define "head"}}
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#173B34">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hadir">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -32,6 +38,7 @@ tailwind.config = {
     .ico { width: 1.25rem; height: 1.25rem; flex: none; }
     /* area sentuh min. 44px di layar kecil agar nyaman untuk semua usia */
     .btn { @apply inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine-500 disabled:opacity-50 disabled:cursor-not-allowed sm:min-h-0 sm:px-3.5; }
+    .btn:active:not(:disabled) { transform: scale(.97); }
     .btn-primary { @apply bg-pine-800 text-white hover:bg-pine-700; }
     .btn-lamp { @apply bg-lamp-400 text-pine-900 hover:bg-lamp-500; }
     .btn-ghost { @apply border border-ink/20 bg-white text-ink hover:bg-pine-50; }
@@ -48,9 +55,24 @@ tailwind.config = {
 <style>
   [x-cloak] { display: none !important; }
   :focus-visible { outline: 2px solid #3B7D6E; outline-offset: 2px; }
+  /* transisi halus antar halaman (Chrome/Edge/Safari terbaru); menu bawah tetap diam */
+  @view-transition { navigation: auto; }
+  #bottomnav { view-transition-name: bottomnav; }
+  html { -webkit-tap-highlight-color: transparent; }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media (max-width: 767px) {
+    .rtable, .rtable tbody, .rtable tr { display: block; width: 100%; }
+    .rtable thead { display: none; }
+    .rtable tr { padding: .875rem 1rem; border-top: 1px solid rgb(20 33 30 / .1); }
+    .rtable tbody tr:first-child { border-top: 0; }
+    .rtable td { display: block; padding: .15rem 0 !important; }
+    .rtable td.hidden { display: none !important; }
+    .rtable td:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; padding-top: .6rem !important; }
+    .rtable tr:active { background: rgb(238 244 241 / .7); }
+  }
   @media print { body { background: #fff !important; } .keep { break-inside: avoid; } a { text-decoration: none !important; } }
 </style>
+<script defer src="/static/app.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 {{end}}
 
@@ -91,21 +113,34 @@ tailwind.config = {
 {{end}}
 {{end}}
 
+{{/* Pengatur ukuran teks. Memakai state `z` dari <body>. */}}
+{{define "zoomctl"}}
+<div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Ukuran teks">
+  <button type="button" @click="z = 100; document.documentElement.style.fontSize = '100%'; try { localStorage.setItem('hadir.zoom', 100) } catch (e) {}"
+          :aria-pressed="z === 100" :class="z === 100 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
+          class="min-h-[2.75rem] rounded-md text-sm font-semibold" aria-label="Teks normal">A</button>
+  <button type="button" @click="z = 115; document.documentElement.style.fontSize = '115%'; try { localStorage.setItem('hadir.zoom', 115) } catch (e) {}"
+          :aria-pressed="z === 115" :class="z === 115 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
+          class="min-h-[2.75rem] rounded-md text-base font-semibold" aria-label="Teks besar">A</button>
+  <button type="button" @click="z = 130; document.documentElement.style.fontSize = '130%'; try { localStorage.setItem('hadir.zoom', 130) } catch (e) {}"
+          :aria-pressed="z === 130" :class="z === 130 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
+          class="min-h-[2.75rem] rounded-md text-xl font-semibold" aria-label="Teks sangat besar">A</button>
+</div>
+{{end}}
+
 {{define "layout"}}<!DOCTYPE html>
 <html lang="id" class="h-full bg-mist">
 <head>
   <title>{{.Title}} · Hadir</title>
   {{template "head" .}}
 </head>
-<body class="min-h-full font-sans text-ink antialiased" x-data="{ nav: false, z: parseInt((function(){ try { return localStorage.getItem('hadir.zoom') } catch (e) { return null } })() || '100') }"
-      @keydown.escape.window="nav = false">
+<body class="min-h-full font-sans text-ink antialiased" x-data="{ sheet: false, y0: 0, z: parseInt((function(){ try { return localStorage.getItem('hadir.zoom') } catch (e) { return null } })() || '100') }"
+      @keydown.escape.window="sheet = false">
 
   <a href="#main" class="sr-only rounded-lg bg-white px-4 py-2 shadow-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50">Lewati ke konten utama</a>
 
-  <!-- Sidebar -->
-  <div x-cloak x-show="nav" x-transition.opacity class="fixed inset-0 z-30 bg-ink/50 lg:hidden print:hidden" @click="nav = false"></div>
-  <aside class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-pine-900 text-pine-100 transition-transform duration-200 lg:translate-x-0 print:hidden"
-         :class="nav ? 'translate-x-0' : '-translate-x-full'" aria-label="Menu utama">
+  <!-- Sidebar (desktop) -->
+  <aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-pine-900 text-pine-100 lg:flex print:hidden" aria-label="Menu utama">
     <div class="flex items-center gap-3 px-5 py-5">
       <img src="/static/favicon.svg" alt="" class="h-9 w-9">
       <div class="leading-tight">
@@ -120,23 +155,10 @@ tailwind.config = {
       </a>
       {{end}}
     </nav>
-
-    <!-- ukuran teks: untuk pengguna dari semua usia -->
     <div class="px-4 pb-3">
-      <p class="mb-1.5 text-xs text-pine-200/80" id="zoomlbl">Ukuran teks</p>
-      <div class="grid grid-cols-3 gap-1.5" role="group" aria-labelledby="zoomlbl">
-        <button type="button" @click="z = 100; document.documentElement.style.fontSize = '100%'; try { localStorage.setItem('hadir.zoom', 100) } catch (e) {}"
-                :aria-pressed="z === 100" :class="z === 100 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
-                class="min-h-[2.5rem] rounded-md text-sm font-semibold" aria-label="Teks normal">A</button>
-        <button type="button" @click="z = 115; document.documentElement.style.fontSize = '115%'; try { localStorage.setItem('hadir.zoom', 115) } catch (e) {}"
-                :aria-pressed="z === 115" :class="z === 115 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
-                class="min-h-[2.5rem] rounded-md text-base font-semibold" aria-label="Teks besar">A</button>
-        <button type="button" @click="z = 130; document.documentElement.style.fontSize = '130%'; try { localStorage.setItem('hadir.zoom', 130) } catch (e) {}"
-                :aria-pressed="z === 130" :class="z === 130 ? 'bg-white text-pine-900' : 'bg-white/10 text-white hover:bg-white/20'"
-                class="min-h-[2.5rem] rounded-md text-xl font-semibold" aria-label="Teks sangat besar">A</button>
-      </div>
+      <p class="mb-1.5 text-xs text-pine-200/80">Ukuran teks</p>
+      {{template "zoomctl"}}
     </div>
-
     <div class="border-t border-white/10 p-4">
       <div class="flex items-center gap-3">
         <div class="grid h-9 w-9 flex-none place-items-center rounded-full bg-lamp-400 text-sm font-bold text-pine-900">{{initials .User.FullName}}</div>
@@ -152,20 +174,92 @@ tailwind.config = {
   </aside>
 
   <!-- Konten -->
-  <div class="flex min-h-screen flex-col lg:pl-64 print:pl-0">
-    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-ink/10 bg-mist/90 px-4 py-2 backdrop-blur lg:hidden print:hidden">
-      <button @click="nav = true" class="grid h-11 w-11 place-items-center rounded-md hover:bg-ink/5" aria-label="Buka menu">{{icon "menu"}}</button>
-      <span class="font-display text-lg font-bold">{{.Title}}</span>
+  <div class="flex min-h-screen flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64 print:pb-0 print:pl-0">
+    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-ink/10 bg-mist/90 px-4 py-2.5 backdrop-blur lg:hidden print:hidden" style="padding-top: max(.625rem, env(safe-area-inset-top))">
+      <img src="/static/favicon.svg" alt="" class="h-8 w-8">
+      <span class="flex-1 truncate font-display text-lg font-bold">{{.Title}}</span>
+      <button type="button" @click="sheet = true" class="grid h-9 w-9 place-items-center rounded-full bg-lamp-400 text-sm font-bold text-pine-900 active:scale-95" aria-label="Akun dan menu">{{initials .User.FullName}}</button>
     </header>
-    <main id="main" class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:py-10 print:max-w-none print:p-0">
+    <main id="main" class="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:px-6 lg:py-10 print:max-w-none print:p-0">
       {{template "content" .}}
     </main>
     {{template "footer"}}
   </div>
 
+  <!-- Navigasi bawah (ponsel) -->
+  <nav id="bottomnav" class="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-white/95 backdrop-blur lg:hidden print:hidden" style="padding-bottom: env(safe-area-inset-bottom)" aria-label="Navigasi bawah">
+    <ul class="mx-auto grid max-w-lg grid-cols-5 items-end px-1">
+      <li>
+        <a href="/" data-haptic class="flex min-h-[3.75rem] flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition active:scale-90 {{if eq .Active "dashboard"}}text-pine-800{{else}}text-ink/70{{end}}" {{if eq .Active "dashboard"}}aria-current="page"{{end}}>
+          <span class="grid h-8 w-14 place-items-center rounded-full transition-colors {{if eq .Active "dashboard"}}bg-pine-100{{end}}">{{icon "home"}}</span>Beranda
+        </a>
+      </li>
+      <li>
+        <a href="/attendance" data-haptic class="flex min-h-[3.75rem] flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition active:scale-90 {{if eq .Active "attendance"}}text-pine-800{{else}}text-ink/70{{end}}" {{if eq .Active "attendance"}}aria-current="page"{{end}}>
+          <span class="grid h-8 w-14 place-items-center rounded-full transition-colors {{if eq .Active "attendance"}}bg-pine-100{{end}}">{{icon "table"}}</span>Rekap
+        </a>
+      </li>
+      <li class="relative min-h-[3.75rem]">
+        <a href="/scanner" data-haptic class="absolute left-1/2 -top-6 grid h-16 w-16 -translate-x-1/2 place-items-center rounded-full bg-lamp-400 text-pine-900 shadow-lg ring-4 ring-mist transition active:scale-90 [&_.ico]:h-7 [&_.ico]:w-7 {{if eq .Active "scanner"}}!bg-pine-800 !text-white{{end}}" aria-label="Scanner" {{if eq .Active "scanner"}}aria-current="page"{{end}}>{{icon "scan"}}</a>
+        <span class="absolute inset-x-0 bottom-2 text-center text-[11px] font-medium {{if eq .Active "scanner"}}text-pine-800{{else}}text-ink/70{{end}}">Scan</span>
+      </li>
+      <li>
+        <a href="/members" data-haptic class="flex min-h-[3.75rem] flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition active:scale-90 {{if eq .Active "members"}}text-pine-800{{else}}text-ink/70{{end}}" {{if eq .Active "members"}}aria-current="page"{{end}}>
+          <span class="grid h-8 w-14 place-items-center rounded-full transition-colors {{if eq .Active "members"}}bg-pine-100{{end}}">{{icon "users"}}</span>Anggota
+        </a>
+      </li>
+      <li>
+        <button type="button" data-haptic @click="sheet = true" :aria-expanded="sheet" aria-haspopup="dialog" class="flex min-h-[3.75rem] w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-ink/70 transition active:scale-90">
+          <span class="grid h-8 w-14 place-items-center rounded-full">{{icon "menu"}}</span>Menu
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Menu geser dari bawah (ponsel) -->
+  <div x-cloak x-show="sheet" class="fixed inset-0 z-40 lg:hidden print:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+    <div class="absolute inset-0 bg-ink/55" x-show="sheet" x-transition.opacity @click="sheet = false"></div>
+    <div x-show="sheet"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         class="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-pine-900 text-pine-100"
+         style="padding-bottom: calc(1.25rem + env(safe-area-inset-bottom))">
+      <!-- gagang: geser ke bawah untuk menutup -->
+      <div class="sticky top-0 z-10 bg-pine-900 px-5 pb-2 pt-3" @touchstart.passive="y0 = $event.touches[0].clientY" @touchend.passive="if ($event.changedTouches[0].clientY - y0 > 50) sheet = false">
+        <div class="mx-auto h-1.5 w-10 rounded-full bg-white/30"></div>
+      </div>
+      <div class="px-5">
+        <div class="flex items-center gap-3">
+          <div class="grid h-11 w-11 flex-none place-items-center rounded-full bg-lamp-400 font-bold text-pine-900">{{initials .User.FullName}}</div>
+          <div class="min-w-0 flex-1 leading-tight">
+            <p class="truncate font-semibold text-white">{{.User.FullName}}</p>
+            <p class="text-sm text-pine-200/80">{{if .User.IsAdmin}}Admin{{else}}Pengurus{{end}}</p>
+          </div>
+          <button type="button" @click="sheet = false" class="grid h-11 w-11 place-items-center rounded-full bg-white/10 active:bg-white/20" aria-label="Tutup menu">{{icon "x"}}</button>
+        </div>
+
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          {{range .Nav}}{{if not (or (eq .Key "dashboard") (eq .Key "attendance") (eq .Key "scanner") (eq .Key "members"))}}
+          <a href="{{.Href}}" data-haptic class="flex min-h-[5.5rem] flex-col justify-between rounded-2xl p-4 transition active:scale-95 {{if eq .Key $.Active}}bg-white text-pine-900{{else}}bg-white/10 active:bg-white/20{{end}}">
+            {{icon .Icon}}<span class="mt-3 text-sm font-semibold leading-snug">{{.Label}}</span>
+          </a>
+          {{end}}{{end}}
+        </div>
+
+        <p class="mb-1.5 mt-6 text-sm text-pine-200/80">Ukuran teks</p>
+        {{template "zoomctl"}}
+
+        <form method="post" action="/logout" class="mt-6">
+          <button class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-xl bg-white/10 font-medium text-white active:bg-white/20">{{icon "logout"}} Keluar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   {{with .Flash}}
   <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 6000)" x-show="show" x-transition x-cloak
-       class="fixed bottom-4 left-4 right-4 z-50 flex items-start gap-3 rounded-xl px-4 py-3 text-sm shadow-lg sm:left-auto sm:max-w-sm print:hidden {{if eq .Kind "ok"}}bg-pine-800 text-white{{else}}bg-clay-700 text-white{{end}}" role="status">
+       class="fixed bottom-24 left-4 right-4 z-50 flex items-start gap-3 rounded-xl px-4 py-3 text-sm shadow-lg sm:left-auto sm:max-w-sm lg:bottom-4 print:hidden {{if eq .Kind "ok"}}bg-pine-800 text-white{{else}}bg-clay-700 text-white{{end}}" role="status"
+       style="margin-bottom: env(safe-area-inset-bottom)">
     <span class="mt-0.5">{{if eq .Kind "ok"}}{{icon "check"}}{{else}}{{icon "x"}}{{end}}</span>
     <p class="flex-1">{{.Message}}</p>
     <button @click="show = false" class="opacity-80 hover:opacity-100" aria-label="Tutup">{{icon "x"}}</button>

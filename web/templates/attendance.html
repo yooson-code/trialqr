@@ -67,11 +67,11 @@
     <p class="mt-4 text-sm text-ink/70"><strong class="text-ink">{{.PresentCount}}</strong> dari {{len .Summary}} anggota aktif pernah hadir pada rentang ini.</p>
     {{if .Summary}}
     <div class="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
-      <table class="min-w-full divide-y divide-ink/10">
+      <table class="rtable min-w-full divide-y divide-ink/10">
         <thead class="bg-mist/60"><tr><th class="th">Nama</th><th class="th hidden md:table-cell">Kelompok</th><th class="th hidden lg:table-cell">Orang tua</th><th class="th text-right">Hadir</th></tr></thead>
         <tbody class="divide-y divide-ink/10">
           {{range .Summary}}
-          <tr><td class="td"><p class="font-medium">{{.FullName}}</p><span class="chip {{catChip .CategoryKey}} mt-0.5">{{.Category}}</span></td>
+          <tr><td class="td"><p class="font-medium">{{.FullName}}</p><p class="text-xs text-ink/70 md:hidden">{{.GroupName}}, {{.VillageName}}</p><span class="chip {{catChip .CategoryKey}} mt-0.5">{{.Category}}</span></td>
             <td class="td hidden md:table-cell text-ink/70">{{.GroupName}}, {{.VillageName}}</td>
             <td class="td hidden lg:table-cell text-sm">{{if .ParentName}}{{.ParentName}}{{end}}{{if .ParentPhone}}<br><a href="{{wa .ParentPhone}}" target="_blank" rel="noopener" class="text-xs text-pine-600 hover:underline">{{.ParentPhone}}</a>{{else if not .ParentName}}<span class="text-ink/35">-</span>{{end}}</td>
             <td class="td text-right"><span class="chip {{if .Total}}bg-pine-100 text-pine-700{{else}}bg-clay-100 text-clay-700{{end}} tabular-nums">{{.Total}}x</span></td></tr>
@@ -84,14 +84,14 @@
     <p class="mt-4 text-sm text-ink/70"><strong class="text-ink">{{len .Rows}}</strong> kehadiran tercatat.</p>
     {{if .Rows}}
     <div class="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
-      <table class="min-w-full divide-y divide-ink/10">
+      <table class="rtable min-w-full divide-y divide-ink/10">
         <thead class="bg-mist/60"><tr><th class="th">Tanggal</th><th class="th">Jam</th><th class="th">Nama</th><th class="th hidden md:table-cell">Kelompok</th><th class="th hidden lg:table-cell">Pengajian</th><th class="th hidden lg:table-cell">Dicatat</th><th class="th">Metode</th><th class="th"><span class="sr-only">Aksi</span></th></tr></thead>
         <tbody class="divide-y divide-ink/10">
           {{range .Rows}}
           <tr class="hover:bg-pine-50/50">
             <td class="td whitespace-nowrap">{{dateShort .ScanDate}}</td>
             <td class="td tabular-nums text-ink/70">{{clock .ScannedAt}}</td>
-            <td class="td"><p class="font-medium">{{.MemberName}}</p><span class="chip {{catChip .CategoryKey}} mt-0.5">{{.Category}}</span></td>
+            <td class="td"><p class="font-medium">{{.MemberName}}</p><p class="text-xs text-ink/70 md:hidden">{{.GroupName}}, {{.VillageName}}</p><span class="chip {{catChip .CategoryKey}} mt-0.5">{{.Category}}</span></td>
             <td class="td hidden md:table-cell text-ink/70">{{.GroupName}}, {{.VillageName}}</td>
             <td class="td hidden lg:table-cell text-ink/70">{{.ScheduleTitle}}</td>
             <td class="td hidden lg:table-cell text-ink/70">{{.ScannedBy}}</td>
