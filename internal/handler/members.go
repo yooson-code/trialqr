@@ -54,6 +54,17 @@ func memberFilterFrom(c *gin.Context) store.MemberFilter {
 	return f
 }
 
+// countNonZero menghitung berapa kondisi yang bernilai true (jumlah filter aktif).
+func countNonZero(conds ...bool) int {
+	n := 0
+	for _, c := range conds {
+		if c {
+			n++
+		}
+	}
+	return n
+}
+
 func filterQuery(f store.MemberFilter) string {
 	v := url.Values{}
 	if f.Q != "" {
@@ -92,6 +103,8 @@ func (h *Handler) MembersPage(c *gin.Context) {
 		"Members": members, "Villages": villages, "Groups": groups, "Views": views,
 		"Categories": models.Categories,
 		"Filter":     f, "HasMaster": len(groups) > 0,
+		"ActiveFilters": countNonZero(f.VillageID > 0, f.GroupID > 0, f.Category != "", f.Marital != ""),
+		"PageData": gin.H{"members": members, "villages": villages, "groups": groups, "categories": models.Categories},
 		"CardsURL":  template.URL("/members/cards?" + q),
 		"ExportURL": template.URL("/members/export?" + q),
 	})

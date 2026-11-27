@@ -100,6 +100,7 @@ func (h *Handler) AttendancePage(c *gin.Context) {
 	q := filterValues(f).Encode()
 	data["Views"], data["Schedules"] = views, schedules
 	data["Categories"] = models.Categories
+	data["ActiveFilters"] = countNonZero(f.VillageID > 0, f.GroupID > 0, f.ScheduleID > 0, f.Category != "")
 	data["BackURL"] = "/attendance?" + c.Request.URL.RawQuery
 	data["CSVURL"] = template.URL("/attendance/export?" + q + "&format=csv")
 	data["XLSXURL"] = template.URL("/attendance/export?" + q + "&format=xlsx")

@@ -1,5 +1,5 @@
 {{define "content"}}
-<div x-data="{ open: false, level: 'daerah' }">
+<div x-data="{ open: new URLSearchParams(location.search).get('new') === '1', level: 'daerah' }">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <h1 class="font-display text-3xl font-bold">Jadwal pengajian</h1>
@@ -71,7 +71,7 @@
   <div class="mt-6 overflow-x-auto rounded-xl border border-ink/10 bg-white">
     <table class="rtable min-w-full divide-y divide-ink/10">
       <thead class="bg-mist/60"><tr><th class="th">Pengajian</th><th class="th">Cakupan</th><th class="th">Waktu</th><th class="th hidden sm:table-cell">Hadir</th><th class="th">Status</th><th class="th text-right">Aksi</th></tr></thead>
-      <tbody class="divide-y divide-ink/10">
+      <tbody class="stagger divide-y divide-ink/10">
         {{range .Schedules}}
         <tr>
           <td class="td"><p class="font-semibold">{{.Title}}</p>{{if .Location}}<p class="text-xs text-ink/70">{{.Location}}</p>{{end}}</td>
@@ -100,8 +100,9 @@
     </table>
   </div>
   {{else}}
-  <div class="mt-6 rounded-xl border border-dashed border-ink/25 px-6 py-14 text-center">
-    <p class="font-display text-xl font-bold">Belum ada jadwal</p>
+  <div class="mt-6 rounded-xl border border-dashed border-ink/25 px-6 py-12 text-center">
+    {{illus "calendar"}}
+    <p class="mt-3 font-display text-xl font-bold">Belum ada jadwal</p>
     <p class="mx-auto mt-1 max-w-sm text-sm text-ink/70">Buat jadwal pengajian pertama agar scanner bisa mencatat kehadiran.</p>
   </div>
   {{end}}

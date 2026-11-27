@@ -1,5 +1,6 @@
 {{define "content"}}
-<form method="post" action="{{.FormAction}}" x-data="reportForm()" class="mx-auto max-w-3xl">
+<script type="application/json" id="page-data">{{.PageData}}</script>
+<form method="post" action="{{.FormAction}}" x-data="reportForm" class="mx-auto max-w-3xl">
   <a href="/reports" class="text-sm font-medium text-pine-600 hover:underline">&larr; Daftar laporan</a>
   <h1 class="mt-2 font-display text-3xl font-bold">{{if .IsNew}}Laporan baru{{else}}Ubah laporan{{end}}</h1>
   <p class="mt-1 text-sm text-ink/70">Pelapor: <strong class="text-ink">{{.Report.AuthorName}}</strong>. Draft hanya terlihat oleh Anda sampai laporan dikirim.</p>
@@ -110,20 +111,4 @@
   </div>
 </form>
 
-<script>
-document.addEventListener('alpine:init', () => {
-  Alpine.data('reportForm', () => {
-    const INIT = {{.Report.Items}} || [];
-    let seq = 0;
-    const mk = (o) => ({ k: ++seq, name: (o && o.name) || '', status: (o && o.status) || 'berjalan',
-      achievement: (o && o.achievement) || '', obstacle: (o && o.obstacle) || '', followup: (o && o.followup) || '' });
-    return {
-      level: {{.Report.Level}},
-      items: (INIT.length ? INIT : [{}]).map(mk),
-      add() { if (this.items.length < 40) this.items.push(mk()); },
-      remove(i) { this.items.splice(i, 1); if (!this.items.length) this.items.push(mk()); }
-    };
-  });
-});
-</script>
 {{end}}

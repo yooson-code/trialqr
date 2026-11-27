@@ -124,6 +124,7 @@ func (h *Handler) reportForm(c *gin.Context, r *models.Report, isNew bool) {
 		"Title": "Laporan musyawarah", "Active": "reports", "Report": r, "IsNew": isNew, "Views": views,
 		"Statuses": models.ItemStatuses, "FormAction": "/reports",
 		"SelVillage": derefID(r.VillageID), "SelGroup": derefID(r.GroupID),
+		"PageData": gin.H{"items": r.Items, "level": r.Level},
 	}
 	if !isNew {
 		data["FormAction"] = "/reports/" + strconv.FormatInt(r.ID, 10)

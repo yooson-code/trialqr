@@ -10,7 +10,7 @@
 <form method="get" class="mt-6 flex flex-wrap items-end gap-3">
   <div>
     <label class="lbl" for="period">Periode</label>
-    <input id="period" type="month" name="period" value="{{if not .All}}{{periodInput .Period}}{{end}}" pattern="[0-9]{4}-[0-9]{2}" placeholder="2026-05" class="field w-48" onchange="this.form.submit()">
+    <input id="period" type="month" name="period" value="{{if not .All}}{{periodInput .Period}}{{end}}" pattern="[0-9]{4}-[0-9]{2}" placeholder="2026-05" class="field w-48" onchange="this.form.requestSubmit()">
   </div>
   <button class="btn btn-ghost">Tampilkan</button>
   {{if .All}}<a href="/reports" class="btn btn-ghost">Bulan ini</a>{{else}}<a href="/reports?period=all" class="btn btn-ghost">Semua periode</a>{{end}}
@@ -26,7 +26,7 @@
 </p>
 
 {{if .Reports}}
-<ul class="mt-3 divide-y divide-ink/10 border-y border-ink/10">
+<ul class="stagger mt-3 divide-y divide-ink/10 border-y border-ink/10">
   {{range .Reports}}
   <li>
     <a href="/reports/{{.ID}}" class="flex flex-wrap items-center gap-x-4 gap-y-2 py-4 hover:bg-pine-50/60 sm:px-2">
@@ -49,8 +49,9 @@
   {{end}}
 </ul>
 {{else}}
-<div class="mt-4 rounded-xl border border-dashed border-ink/25 px-6 py-14 text-center">
-  <p class="font-display text-xl font-bold">Belum ada laporan{{if not .All}} untuk {{monthLabel .Period}}{{end}}</p>
+<div class="mt-4 rounded-xl border border-dashed border-ink/25 px-6 py-12 text-center">
+  {{illus "report"}}
+  <p class="mt-3 font-display text-xl font-bold">Belum ada laporan{{if not .All}} untuk {{monthLabel .Period}}{{end}}</p>
   <p class="mx-auto mt-1 max-w-md text-sm text-ink/70">Setiap pengurus mengisi satu laporan per bulan sebelum musyawarah. Laporan yang dikirim bisa dibaca semua peserta.</p>
   <a href="/reports/new{{if not .All}}?period={{periodInput .Period}}{{end}}" class="btn btn-primary mt-4">Buat laporan</a>
 </div>

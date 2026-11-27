@@ -43,6 +43,7 @@ var icons = map[string]string{
 	"key":      `<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14 9l2 2"/>`,
 	"search":   `<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>`,
 	"file":     `<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>`,
+	"filter":   `<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>`,
 	"card":     `<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>`,
 	"phone":    `<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>`,
 }
@@ -71,6 +72,22 @@ func funcMap() template.FuncMap {
 		"periodInput": func(t time.Time) string { return t.Format("2006-01") },
 		"itemStatus":  models.ItemStatusLabel,
 		"itemChip":    itemChip,
+		"firstName": func(n string) string {
+			if f := strings.Fields(n); len(f) > 0 {
+				return f[0]
+			}
+			return n
+		},
+		"illus": illus,
+		"ringOffset": func(pct int) string { // lingkaran r=44: keliling 276.46
+			if pct < 0 {
+				pct = 0
+			}
+			if pct > 100 {
+				pct = 100
+			}
+			return fmt.Sprintf("%.2f", 276.46*(1-float64(pct)/100))
+		},
 		"dateTime": func(t time.Time) string {
 			t = t.In(timeutil.WIB)
 			return fmtDate(t, false) + ", " + t.Format("15:04") + " WIB"
@@ -194,4 +211,25 @@ func itemChip(key string) string {
 	default:
 		return "bg-lamp-100 text-lamp-700"
 	}
+}
+
+// illus: ilustrasi garis sederhana untuk tampilan kosong.
+func illus(name string) template.HTML {
+	const head = `<svg viewBox="0 0 120 90" class="mx-auto h-24 w-auto" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`
+	var body string
+	switch name {
+	case "members": // dua sosok
+		body = `<circle cx="46" cy="34" r="12" stroke="#173B34" stroke-width="3"/><path d="M24 74c1-14 10-22 22-22s21 8 22 22" stroke="#173B34" stroke-width="3"/>` +
+			`<circle cx="82" cy="40" r="9" fill="#F2B544" stroke="#173B34" stroke-width="3"/><path d="M68 74c1-10 7-16 14-16s13 6 14 16" stroke="#173B34" stroke-width="3"/>`
+	case "calendar":
+		body = `<rect x="24" y="22" width="72" height="54" rx="8" stroke="#173B34" stroke-width="3"/><path d="M24 40h72M44 14v14M76 14v14" stroke="#173B34" stroke-width="3"/>` +
+			`<rect x="38" y="50" width="12" height="12" rx="3" fill="#F2B544"/><path d="M62 56h20" stroke="#173B34" stroke-width="3"/>`
+	case "report":
+		body = `<path d="M38 14h30l16 16v46a4 4 0 0 1-4 4H38a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4z" stroke="#173B34" stroke-width="3"/><path d="M68 14v16h16" stroke="#173B34" stroke-width="3"/>` +
+			`<path d="M44 46h28M44 56h28" stroke="#173B34" stroke-width="3"/><circle cx="76" cy="66" r="9" fill="#F2B544" stroke="#173B34" stroke-width="3"/><path d="m72 66 3 3 5-6" stroke="#173B34" stroke-width="2.5"/>`
+	default: // tabel/rekap
+		body = `<rect x="22" y="20" width="76" height="52" rx="8" stroke="#173B34" stroke-width="3"/><path d="M22 36h76M50 36v36" stroke="#173B34" stroke-width="3"/>` +
+			`<rect x="28" y="44" width="16" height="6" rx="3" fill="#F2B544"/><rect x="28" y="56" width="16" height="6" rx="3" fill="#B5D1C7"/>`
+	}
+	return template.HTML(head + body + `</svg>`)
 }

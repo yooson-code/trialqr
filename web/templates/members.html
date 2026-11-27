@@ -1,14 +1,15 @@
 {{define "content"}}
-<div x-data="members()" x-init="init()" @keydown.escape.window="modal = false; qr = null">
+<script type="application/json" id="page-data">{{.PageData}}</script>
+<div x-data="members" @keydown.escape.window="modal = false; qr = null">
 
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <h1 class="font-display text-3xl font-bold">Anggota</h1>
-      <p class="text-sm text-ink/70">{{len .Members}} anggota{{if or .Filter.Q .Filter.VillageID .Filter.GroupID .Filter.Category .Filter.Marital}} sesuai filter{{end}}</p>
+      <p class="text-sm text-ink/70">{{len .Members}} anggota{{if or .Filter.Q .ActiveFilters}} sesuai filter. <a href="/members" class="font-medium text-pine-600 hover:underline">Hapus filter</a>{{end}}</p>
     </div>
     <div class="flex flex-wrap gap-2">
-      {{if .Members}}<a href="{{.ExportURL}}" class="btn btn-ghost">{{icon "download"}} Ekspor CSV</a>
-      <a href="{{.CardsURL}}" target="_blank" class="btn btn-ghost">{{icon "print"}} Cetak kartu</a>{{end}}
+      {{if .Members}}<a href="{{.ExportURL}}" class="btn btn-ghost">{{icon "download"}}<span class="hidden sm:inline">Ekspor CSV</span><span class="sm:hidden">CSV</span></a>
+      <a href="{{.CardsURL}}" target="_blank" class="btn btn-ghost">{{icon "print"}}<span class="hidden sm:inline">Cetak kartu</span><span class="sm:hidden">Kartu</span></a>{{end}}
       <button class="btn btn-primary" @click="openNew()" {{if not .HasMaster}}disabled title="Tambahkan desa dan kelompok dulu"{{end}}>{{icon "plus"}} Tambah anggota</button>
     </div>
   </div>
@@ -17,47 +18,75 @@
   <p class="mt-5 rounded-lg bg-lamp-100 px-4 py-3 text-sm text-lamp-700">Belum ada desa dan kelompok. <a href="/master" class="font-semibold underline">Isi dulu di halaman Desa &amp; kelompok</a> supaya bisa dipilih saat menambah anggota.</p>
   {{end}}
 
-  <!-- filter -->
-  <form method="get" class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-    <div class="relative sm:col-span-2 lg:col-span-6">
-      <span class="pointer-events-none absolute left-3 top-3 text-ink/40 sm:top-2.5">{{icon "search"}}</span>
-      <input class="field pl-10" type="search" name="q" value="{{.Filter.Q}}" placeholder="Cari nama, nomor HP, orang tua, atau kartu RFID" aria-label="Cari anggota">
+  <!-- pencarian + filter (lembar dari bawah di ponsel) -->
+  <form method="get" x-data="{ open: false }" x-effect="document.body.style.overflow = open ? 'hidden' : ''" @keydown.escape.window="open = false" class="mt-5">
+    <div class="flex gap-2">
+      <div class="relative flex-1">
+        <span class="pointer-events-none absolute left-3 top-3 text-ink/40 sm:top-2.5">{{icon "search"}}</span>
+        <input class="field pl-10" type="search" name="q" value="{{.Filter.Q}}" placeholder="Cari nama, HP, orang tua, atau RFID" aria-label="Cari anggota" enterkeyhint="search">
+      </div>
+      <button type="button" class="btn btn-ghost lg:hidden" @click="open = true" :aria-expanded="open">{{icon "filter"}}<span>Filter</span>{{if .ActiveFilters}}<span class="badge">{{.ActiveFilters}}</span>{{end}}</button>
     </div>
-    <select name="village_id" class="field lg:col-span-1" aria-label="Filter desa" onchange="this.form.group_id.value=''; this.form.submit()">
-      <option value="">Semua desa</option>
-      {{range .Views}}<option value="{{.ID}}" {{if eq $.Filter.VillageID .ID}}selected{{end}}>{{.Name}}</option>{{end}}
-    </select>
-    <select name="group_id" class="field lg:col-span-2" aria-label="Filter kelompok" onchange="this.form.submit()">
-      <option value="">Semua kelompok</option>
-      {{range .Views}}<optgroup label="{{.Name}}">{{range .Groups}}<option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
-    </select>
-    <select name="category" class="field lg:col-span-1" aria-label="Filter kategori" onchange="this.form.submit()">
-      <option value="">Semua kategori</option>
-      {{range .Categories}}<option value="{{.Key}}" {{if eq $.Filter.Category .Key}}selected{{end}}>{{.Label}} ({{.Min}}{{if lt .Max 100}}-{{.Max}}{{else}}+{{end}})</option>{{end}}
-      <option value="belum" {{if eq $.Filter.Category "belum"}}selected{{end}}>Belum diisi</option>
-    </select>
-    <select name="marital" class="field lg:col-span-1" aria-label="Filter status pernikahan" onchange="this.form.submit()">
-      <option value="">Semua status nikah</option>
-      <option value="belum" {{if eq $.Filter.Marital "belum"}}selected{{end}}>Belum menikah</option>
-      <option value="menikah" {{if eq $.Filter.Marital "menikah"}}selected{{end}}>Menikah</option>
-    </select>
-    <button class="btn btn-ghost sm:col-span-2 lg:col-span-6 lg:justify-self-start">Terapkan filter</button>
+
+    <div x-cloak x-show="open" x-transition.opacity class="fixed inset-0 z-40 bg-ink/50 lg:hidden" @click="open = false"></div>
+    <div class="fsheet lg:mt-3 lg:grid lg:grid-cols-4 lg:gap-3" :class="{ 'is-open': open }" role="dialog" aria-label="Filter anggota">
+      <div class="mb-4 flex items-center justify-between lg:hidden">
+        <h2 class="font-display text-xl font-bold">Filter anggota</h2>
+        <button type="button" @click="open = false" class="grid h-10 w-10 place-items-center rounded-full bg-ink/5" aria-label="Tutup">{{icon "x"}}</button>
+      </div>
+      <div class="space-y-4 lg:contents">
+        <div>
+          <label class="lbl lg:sr-only" for="fv">Desa</label>
+          <select id="fv" name="village_id" class="field" onchange="this.form.group_id.value=''; if (matchMedia('(min-width:1024px)').matches) this.form.requestSubmit()">
+            <option value="">Semua desa</option>
+            {{range .Views}}<option value="{{.ID}}" {{if eq $.Filter.VillageID .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+          </select>
+        </div>
+        <div>
+          <label class="lbl lg:sr-only" for="fg">Kelompok</label>
+          <select id="fg" name="group_id" class="field" onchange="if (matchMedia('(min-width:1024px)').matches) this.form.requestSubmit()">
+            <option value="">Semua kelompok</option>
+            {{range .Views}}<optgroup label="{{.Name}}">{{range .Groups}}<option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+          </select>
+        </div>
+        <div>
+          <label class="lbl lg:sr-only" for="fc">Kategori umur</label>
+          <select id="fc" name="category" class="field" onchange="if (matchMedia('(min-width:1024px)').matches) this.form.requestSubmit()">
+            <option value="">Semua kategori</option>
+            {{range .Categories}}<option value="{{.Key}}" {{if eq $.Filter.Category .Key}}selected{{end}}>{{.Label}} ({{.Min}}{{if lt .Max 100}}-{{.Max}}{{else}}+{{end}})</option>{{end}}
+            <option value="belum" {{if eq $.Filter.Category "belum"}}selected{{end}}>Belum diisi</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl lg:sr-only" for="fm">Status pernikahan</label>
+          <select id="fm" name="marital" class="field" onchange="if (matchMedia('(min-width:1024px)').matches) this.form.requestSubmit()">
+            <option value="">Semua status nikah</option>
+            <option value="belum" {{if eq $.Filter.Marital "belum"}}selected{{end}}>Belum menikah</option>
+            <option value="menikah" {{if eq $.Filter.Marital "menikah"}}selected{{end}}>Menikah</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-6 flex gap-2 lg:hidden">
+        <a href="/members" class="btn btn-ghost flex-1">Reset</a>
+        <button class="btn btn-primary flex-1">Terapkan</button>
+      </div>
+    </div>
   </form>
 
-  <!-- tabel -->
+  <!-- daftar -->
   {{if .Members}}
   <div class="mt-5 overflow-x-auto rounded-xl border border-ink/10 bg-white">
     <table class="rtable min-w-full divide-y divide-ink/10">
       <thead class="bg-mist/60"><tr>
         <th class="th">Anggota</th><th class="th hidden md:table-cell">Kelompok</th><th class="th hidden md:table-cell">No HP</th><th class="th hidden lg:table-cell">Orang tua</th><th class="th">Status</th><th class="th text-right">Aksi</th>
       </tr></thead>
-      <tbody class="divide-y divide-ink/10">
+      <tbody class="stagger divide-y divide-ink/10">
         {{range .Members}}
         <tr class="hover:bg-pine-50/50">
           <td class="td">
             <div class="flex items-center gap-3">
-              {{if .PhotoURL}}<img src="{{.PhotoURL}}" alt="" class="h-10 w-10 flex-none rounded-full object-cover" loading="lazy">
-              {{else}}<div class="grid h-10 w-10 flex-none place-items-center rounded-full bg-pine-100 text-sm font-bold text-pine-700">{{initials .FullName}}</div>{{end}}
+              {{if .PhotoURL}}<img src="{{.PhotoURL}}" alt="" class="h-11 w-11 flex-none rounded-full object-cover" loading="lazy">
+              {{else}}<div class="grid h-11 w-11 flex-none place-items-center rounded-full bg-pine-100 text-sm font-bold text-pine-700">{{initials .FullName}}</div>{{end}}
               <div class="min-w-0">
                 <p class="truncate font-semibold">{{.FullName}}</p>
                 <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
@@ -66,7 +95,7 @@
                   {{if .Age}}<span class="text-ink/70">{{.Age}} th</span>{{end}}
                   {{if .RFID}}<span class="chip bg-ink/10 text-ink/70" title="Kartu RFID terdaftar">RFID</span>{{end}}
                 </p>
-                <p class="truncate text-xs text-ink/70 md:hidden">{{.GroupName}}, {{.VillageName}}</p>
+                <p class="mt-0.5 truncate text-xs text-ink/70 md:hidden">{{.GroupName}}, {{.VillageName}}</p>
                 {{if .Phone}}<a href="{{wa .Phone}}" target="_blank" rel="noopener" class="text-xs font-medium text-pine-600 md:hidden">{{.Phone}}</a>{{end}}
               </div>
             </div>
@@ -83,8 +112,8 @@
           <td class="td">{{if .IsActive}}<span class="chip bg-pine-100 text-pine-700">Aktif</span>{{else}}<span class="chip bg-ink/10 text-ink/70">Nonaktif</span>{{end}}</td>
           <td class="td">
             <div class="flex justify-end gap-1">
-              <button class="btn btn-ghost !px-2.5" @click="showQR('{{.ID}}')" title="Lihat QR Code" aria-label="QR Code {{.FullName}}">{{icon "qr"}}</button>
-              <button class="btn btn-ghost !px-2.5" @click="openEdit('{{.ID}}')" title="Ubah" aria-label="Ubah {{.FullName}}">{{icon "edit"}}</button>
+              <button class="btn btn-ghost !px-2.5" @click="showQR('{{.ID}}')" title="Lihat QR Code" aria-label="QR Code {{.FullName}}">{{icon "qr"}}<span class="md:hidden">QR</span></button>
+              <button class="btn btn-ghost !px-2.5" @click="openEdit('{{.ID}}')" title="Ubah" aria-label="Ubah {{.FullName}}">{{icon "edit"}}<span class="md:hidden">Ubah</span></button>
               <form method="post" action="/members/{{.ID}}/delete" onsubmit="return confirm('Hapus {{.FullName}}? Seluruh riwayat kehadirannya ikut terhapus.')">
                 <button class="btn btn-danger !px-2.5" title="Hapus" aria-label="Hapus {{.FullName}}">{{icon "trash"}}</button>
               </form>
@@ -96,15 +125,18 @@
     </table>
   </div>
   {{else}}
-  <div class="mt-5 rounded-xl border border-dashed border-ink/25 px-6 py-14 text-center">
-    <p class="font-display text-xl font-bold">{{if or .Filter.Q .Filter.VillageID .Filter.GroupID .Filter.Category}}Tidak ada anggota yang cocok{{else}}Belum ada anggota{{end}}</p>
-    <p class="mx-auto mt-1 max-w-sm text-sm text-ink/70">{{if or .Filter.Q .Filter.VillageID .Filter.GroupID .Filter.Category}}Coba ubah kata kunci atau filter desa dan kelompok.{{else}}Tambahkan anggota pertama. QR Code uniknya langsung dibuat otomatis.{{end}}</p>
+  <div class="mt-5 rounded-xl border border-dashed border-ink/25 px-6 py-12 text-center">
+    {{illus "members"}}
+    <p class="mt-3 font-display text-xl font-bold">{{if or .Filter.Q .ActiveFilters}}Tidak ada anggota yang cocok{{else}}Belum ada anggota{{end}}</p>
+    <p class="mx-auto mt-1 max-w-sm text-sm text-ink/70">{{if or .Filter.Q .ActiveFilters}}Coba ubah kata kunci atau filter yang dipakai.{{else}}Tambahkan anggota pertama. QR Code uniknya langsung dibuat otomatis.{{end}}</p>
   </div>
   {{end}}
 
   <!-- modal tambah/ubah -->
   <div x-cloak x-show="modal" class="fixed inset-0 z-40 flex items-end justify-center bg-ink/50 p-0 sm:items-center sm:p-4" x-transition.opacity>
-    <form method="post" enctype="multipart/form-data" :action="action" @click.outside="modal = false"
+    <form method="post" enctype="multipart/form-data" :action="action" @click.outside="modal = false" x-show="modal"
+          x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="translate-y-10 opacity-0 sm:translate-y-0 sm:scale-95" x-transition:enter-end="translate-y-0 opacity-100 sm:scale-100"
+          x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="translate-y-10 opacity-0 sm:translate-y-0 sm:scale-95"
           class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl">
       <div class="flex items-start justify-between">
         <h2 class="font-display text-2xl font-bold" x-text="form.id ? 'Ubah data anggota' : 'Anggota baru'"></h2>
@@ -216,53 +248,4 @@
     </div>
   </div>
 </div>
-
-<script>
-document.addEventListener('alpine:init', () => {
-  Alpine.data('members', () => {
-    const MEMBERS = {{.Members}} || [];
-    const VILLAGES = {{.Villages}} || [];
-    const GROUPS = {{.Groups}} || [];
-    const CATS = {{.Categories}} || [];
-    const blank = () => ({ id: '', full_name: '', phone: '', village_id: '', group_id: '', is_active: true, photo_url: null, birth_date: '', parent_name: '', parent_phone: '', rfid_uid: '', marital_status: '' });
-    return {
-      modal: false, qr: null, preview: null, compressing: false, photoInfo: '', form: blank(), villages: VILLAGES, groups: GROUPS,
-      init() {},
-      get groupOptions() { return this.groups.filter(g => String(g.village_id) === String(this.form.village_id)); },
-      get ageInfo() {
-        const b = this.form.birth_date; if (!b) return null;
-        const d = new Date(b + 'T00:00:00'), n = new Date();
-        let a = n.getFullYear() - d.getFullYear();
-        if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
-        if (isNaN(a) || a < 0 || a > 100) return null;
-        const c = CATS.find(c => a >= c.min && a <= c.max);
-        return { age: a, label: c ? c.label : '-', key: c ? c.key : '' };
-      },
-      get isMandiri() { return !!(this.ageInfo && this.ageInfo.key === 'mandiri'); },
-      get action() { return this.form.id ? '/members/' + this.form.id : '/members'; },
-      openNew() { this.form = blank(); this.preview = null; this.photoInfo = ''; this.modal = true; this.$nextTick(() => document.getElementById('f_name').focus()); },
-      openEdit(id) {
-        const m = MEMBERS.find(x => x.id === id); if (!m) return;
-        this.form = { id: m.id, full_name: m.full_name, phone: m.phone, village_id: m.village_id, group_id: m.group_id, is_active: m.is_active, photo_url: m.photo_url, birth_date: m.birth_date ? m.birth_date.slice(0, 10) : '', parent_name: m.parent_name || '', parent_phone: m.parent_phone || '', rfid_uid: m.rfid_uid || '', marital_status: m.marital_status || '' };
-        this.preview = null; this.photoInfo = ''; this.modal = true;
-      },
-      showQR(id) { this.qr = MEMBERS.find(x => x.id === id) || null; },
-      async onPhoto(e) {
-        const input = e.target, f = input.files[0];
-        this.photoInfo = '';
-        if (!f) { this.preview = null; return; }
-        const fmt = b => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
-        this.compressing = true;
-        const small = await window.compressImage(f);
-        if (small !== f) {
-          const dt = new DataTransfer(); dt.items.add(small); input.files = dt.files;   // ganti file yang akan dikirim
-          this.photoInfo = 'Dikompres dari ' + fmt(f.size) + ' menjadi ' + fmt(small.size);
-        } else { this.photoInfo = 'Ukuran ' + fmt(f.size); }
-        this.preview = URL.createObjectURL(small);
-        this.compressing = false;
-      }
-    };
-  });
-});
-</script>
 {{end}}

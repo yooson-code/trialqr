@@ -43,3 +43,35 @@ window.compressImage = async function (file, maxDim = 800, quality = 0.8) {
 document.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch' && navigator.vibrate && e.target.closest('[data-haptic], .btn')) navigator.vibrate(8);
 }, { passive: true });
+
+/* Data halaman dari server: <script type="application/json" id="page-data">. */
+window.pageData = function () {
+  const el = document.getElementById('page-data');
+  try { return el ? JSON.parse(el.textContent) : {}; } catch (e) { return {}; }
+};
+
+/* Efek kecil yang dijalankan setiap halaman tampil (muat awal maupun pindah halaman). */
+window.hadirEnhance = function () {
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const to = parseInt(el.dataset.count, 10);
+    if (isNaN(to) || calm || to === 0) { el.textContent = isNaN(to) ? el.textContent : to; return; }
+    const t0 = performance.now(), dur = 700;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(to * e);
+      if (p < 1) requestAnimationFrame(step);
+    };
+    el.textContent = '0';
+    requestAnimationFrame(step);
+  });
+};
+
+/* Hindari kedip tampilan tanpa gaya: tampilkan halaman setelah Tailwind selesai memproses. */
+(function () {
+  const root = document.documentElement;
+  const show = () => { root.classList.add('ready'); window.hadirEnhance(); };
+  const go = () => requestAnimationFrame(() => requestAnimationFrame(show));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  setTimeout(() => root.classList.add('ready'), 1200); // jaring pengaman
+})();

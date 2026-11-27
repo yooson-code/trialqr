@@ -111,6 +111,7 @@ func (h *Handler) render(c *gin.Context, page string, data gin.H) {
 		c.String(http.StatusInternalServerError, "Terjadi kesalahan saat menampilkan halaman")
 		return
 	}
+	c.Header("Cache-Control", "no-store")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
 }
 

@@ -143,5 +143,8 @@ func (h *Handler) ScannerPage(c *gin.Context) {
 		serverErr(c, "/", err)
 		return
 	}
-	h.render(c, "scanner.html", gin.H{"Title": "Scanner", "Active": "scanner", "Schedules": schedules})
+	h.render(c, "scanner.html", gin.H{
+		"Title": "Scanner", "Active": "scanner", "Schedules": schedules,
+		"PageData": gin.H{"schedules": schedules},
+	})
 }

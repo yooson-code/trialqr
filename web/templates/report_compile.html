@@ -11,7 +11,7 @@
   <form method="get" class="mt-4 flex flex-wrap items-end gap-3 print:hidden">
     <div>
       <label class="lbl" for="period">Periode</label>
-      <input id="period" type="month" name="period" value="{{periodInput .Period}}" pattern="[0-9]{4}-[0-9]{2}" class="field w-48" onchange="this.form.submit()">
+      <input id="period" type="month" name="period" value="{{periodInput .Period}}" pattern="[0-9]{4}-[0-9]{2}" class="field w-48" onchange="this.form.requestSubmit()">
     </div>
     <button class="btn btn-ghost">Tampilkan</button>
   </form>
